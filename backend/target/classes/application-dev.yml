@@ -1,0 +1,4 @@
+# Development overrides
+app:
+  security:
+    allow-test-endpoints: true

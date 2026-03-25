@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Bash(npm -v)",
+      "Bash(mysql --version)",
+      "Bash(redis-cli ping:*)",
+      "Bash(sc query:*)",
+      "Bash(mysql -u root -proot -e \"SELECT 1\")",
+      "Bash(mysql -u root -e \"SELECT 1\")",
+      "Bash(powershell.exe -Command \"mysql -u root -proot -e ''SELECT 1''\")",
+      "Bash(powershell.exe -Command \"Get-Service | Where-Object { $_.Name -like ''*mysql*'' }\")",
+      "Bash(powershell.exe -Command \"Get-Command mysql* | Select-Object Source\")",
+      "Bash(powershell.exe -Command \"Get-ChildItem ''C:\\\\Program Files\\\\MySQL'' -Recurse -Filter ''mysql.exe'' 2>$null | Select-Object -First 1 -ExpandProperty FullName\")",
+      "Bash(\"/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\" -u root -proot -e \"SHOW DATABASES\")",
+      "Bash(\"/c/Program Files/MySQL/MySQL Server 8.0/bin/mysql.exe\" -u root -e \"SHOW DATABASES\")",
+      "Bash(netstat -ano)",
+      "Read(//c/projects/food-saving-platform-new/**)",
+      "Bash(xargs kill:*)",
+      "Bash(mysql -uroot -pEA7music666 -e \"CREATE DATABASE IF NOT EXISTS food_saving CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\")"
+    ]
+  }
+}

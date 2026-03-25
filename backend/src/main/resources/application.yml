@@ -1,0 +1,73 @@
+# Server Configuration
+server:
+  port: 8080
+
+# Spring Configuration
+spring:
+  application:
+    name: food-saving-platform
+
+  # MySQL Database
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${DB_URL:jdbc:mysql://localhost:3306/food_saving?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+
+  # Redis Configuration
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password:
+      database: 0
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-wait: -1ms
+          max-idle: 8
+          min-idle: 0
+
+  # Servlet Configuration
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+# MyBatis Plus Configuration
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*Mapper.xml
+  type-aliases-package: com.food.entity
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
+      logic-delete-field: deleted
+      logic-delete-value: 1
+      logic-not-delete-value: 0
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:food-saving-platform-dev-secret-key-2026}
+  expiration: ${JWT_EXPIRATION:86400000}  # 24 hours in milliseconds
+
+# App Security
+app:
+  security:
+    allow-test-endpoints: ${ALLOW_TEST_ENDPOINTS:false}
+
+# File upload
+file:
+  upload:
+    path: ${FILE_UPLOAD_PATH:uploads}
+  public:
+    base-url: ${FILE_PUBLIC_BASE_URL:http://localhost:8080}
+
+# Logging
+logging:
+  level:
+    com.food: debug
+    org.springframework.security: info

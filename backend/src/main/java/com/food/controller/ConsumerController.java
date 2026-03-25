@@ -1,0 +1,212 @@
+package com.food.controller;
+
+import com.food.common.Result;
+import com.food.dto.OrderCreateDTO;
+import com.food.entity.*;
+import com.food.exception.RateLimitException;
+import com.food.security.LoginUser;
+import com.food.service.*;
+import jakarta.validation.Valid;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * 居民端控制器
+ */
+@RestController
+@RequestMapping("/api/consumer")
+@RequiredArgsConstructor
+public class ConsumerController {
+
+    private final ProductService productService;
+    private final CartService cartService;
+    private final OrderService orderService;
+    private final CarbonService carbonService;
+    private final CommunityService communityService;
+    private final RateLimitService rateLimitService;
+    private final IdempotencyService idempotencyService;
+
+    /**
+     * 获取商品列表(按社区)
+     */
+    @GetMapping("/products")
+    public Result<List<Product>> getProducts(@RequestParam(required = false) Long communityId) {
+        if (communityId == null) {
+            return Result.error("请先选择社区");
+        }
+        List<Product> products = productService.getProductsByCommunity(communityId);
+        return Result.success(products);
+    }
+
+    /**
+     * 获取商品详情
+     */
+    @GetMapping("/products/{id}")
+    public Result<Product> getProductDetail(@PathVariable("id") Long productId) {
+        Product product = productService.getProductById(productId);
+        return Result.success(product);
+    }
+
+    /**
+     * 添加到购物车
+     */
+    @PostMapping("/cart/add")
+    public Result<Cart> addToCart(Authentication authentication,
+                                   @RequestParam Long productId,
+                                   @RequestParam(defaultValue = "1") Integer quantity) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        Cart cart = cartService.addToCart(loginUser.getUserId(), productId, quantity);
+        return Result.success(cart);
+    }
+
+    /**
+     * 获取购物车列表
+     */
+    @GetMapping("/cart")
+    public Result<List<Cart>> getCart(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        List<Cart> cartList = cartService.getCartList(loginUser.getUserId());
+        return Result.success(cartList);
+    }
+
+    /**
+     * 更新购物车数量
+     */
+    @PutMapping("/cart/{id}")
+    public Result<Cart> updateCart(Authentication authentication,
+                                   @PathVariable("id") Long cartId,
+                                   @RequestParam Integer quantity) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        Cart cart = cartService.updateCartQuantity(cartId, loginUser.getUserId(), quantity);
+        return Result.success(cart);
+    }
+
+    /**
+     * 删除购物车商品
+     */
+    @DeleteMapping("/cart/{id}")
+    public Result<Void> deleteCart(Authentication authentication, @PathVariable("id") Long cartId) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        cartService.deleteCartItem(cartId, loginUser.getUserId());
+        return Result.success();
+    }
+
+    /**
+     * 创建订单
+     */
+    @PostMapping("/order/create")
+    public Result<Order> createOrder(Authentication authentication,
+                                     @Valid @RequestBody OrderCreateDTO orderDTO,
+                                     HttpServletRequest request) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        String key = "consumer:create-order:" + loginUser.getUserId();
+        if (!rateLimitService.allow(key, 5, 10)) {
+            throw new RateLimitException("下单操作过于频繁，请稍后重试");
+        }
+        String idempotencyHeader = request.getHeader("X-Idempotency-Key");
+        String idempotencyKey = (idempotencyHeader != null && !idempotencyHeader.isBlank())
+                ? ("order:idem:" + loginUser.getUserId() + ":" + idempotencyHeader)
+                : buildIdempotencyKey(loginUser.getUserId(), orderDTO);
+        Long existedOrderId = idempotencyService.checkDone(idempotencyKey);
+        if (existedOrderId != null) {
+            Order existed = orderService.getUserOrderById(loginUser.getUserId(), existedOrderId);
+            if (existed != null) {
+                return Result.success(existed);
+            }
+        }
+        if (!idempotencyService.tryBegin(idempotencyKey)) {
+            if (idempotencyService.isProcessing(idempotencyKey)) {
+                throw new RuntimeException("订单正在处理中，请勿重复提交");
+            }
+            Long doneId = idempotencyService.checkDone(idempotencyKey);
+            if (doneId != null) {
+                Order done = orderService.getUserOrderById(loginUser.getUserId(), doneId);
+                if (done != null) {
+                    return Result.success(done);
+                }
+            }
+        }
+        try {
+            Order order = orderService.createOrder(loginUser.getUserId(), orderDTO);
+            idempotencyService.complete(idempotencyKey, order.getOrderId());
+            return Result.success(order);
+        } catch (RuntimeException ex) {
+            idempotencyService.clear(idempotencyKey);
+            throw ex;
+        }
+    }
+
+    private String buildIdempotencyKey(Long userId, OrderCreateDTO orderDTO) {
+        long bucket = System.currentTimeMillis() / 8000L; // 8秒窗口，防止连续重复点击
+        return "order:" + userId + ":" + orderDTO.getProductId() + ":" + orderDTO.getQuantity() + ":" + bucket;
+    }
+
+    /**
+     * 获取我的订单列表
+     */
+    @GetMapping("/orders")
+    public Result<List<Order>> myOrders(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        List<Order> orders = orderService.getUserOrders(loginUser.getUserId());
+        return Result.success(orders);
+    }
+
+    /**
+     * 获取订单详情
+     */
+    @GetMapping("/order/{id}")
+    public Result<Order> getOrderDetail(Authentication authentication, @PathVariable("id") Long orderId) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        List<Order> orders = orderService.getUserOrders(loginUser.getUserId());
+        Order order = orders.stream().filter(o -> o.getOrderId().equals(orderId)).findFirst().orElse(null);
+        return Result.success(order);
+    }
+
+    /**
+     * 取消订单
+     */
+    @PostMapping("/order/{id}/cancel")
+    public Result<Void> cancelOrder(Authentication authentication, @PathVariable("id") Long orderId) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        orderService.cancelOrder(orderId, loginUser.getUserId());
+        return Result.success();
+    }
+
+    /**
+     * 获取低碳中心信息
+     */
+    @GetMapping("/carbon")
+    public Result<Map<String, Object>> carbonCenter(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        UserProfile profile = carbonService.getUserCarbonInfo(loginUser.getUserId());
+        List<CarbonLog> logs = carbonService.getUserCarbonLogs(loginUser.getUserId());
+        return Result.success(Map.of(
+                "profile", profile != null ? profile : new UserProfile(),
+                "logs", logs
+        ));
+    }
+
+    /**
+     * 绑定社区
+     */
+    @PostMapping("/community/bind")
+    public Result<Void> bindCommunity(Authentication authentication, @RequestParam Long communityId) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        carbonService.bindCommunity(loginUser.getUserId(), communityId);
+        return Result.success();
+    }
+
+    /**
+     * 获取社区列表
+     */
+    @GetMapping("/communities")
+    public Result<List<Community>> communities() {
+        List<Community> communities = communityService.getAllCommunities();
+        return Result.success(communities);
+    }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "food-saving-frontend",
+  "version": "1.0.0",
+  "description": "社区临期食品低碳减损系统 - 前端",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.2.0",
+    "axios": "^1.6.2",
+    "bootstrap": "^5.3.8",
+    "chart.js": "^4.5.1",
+    "echarts": "^5.4.3",
+    "pinia": "^2.1.7",
+    "simple-datatables": "^10.2.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.2.5"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.0",
+    "vite": "^5.0.8"
+  }
+}
