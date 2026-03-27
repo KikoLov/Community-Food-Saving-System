@@ -124,7 +124,7 @@
           <div><span class="k">下单时间</span><span class="v">{{ formatDateTime(detailOrder.createTime) }}</span></div>
         </div>
         <div class="thumb-wrap">
-          <img :src="resolveImageSrc(detailOrder.productImage)" class="thumb" alt="商品图" @error="handleImgError">
+          <img :src="resolveProductImageSrc(detailOrder, { size: 220 })" class="thumb" alt="商品图" @error="handleImgError">
         </div>
         <div class="timeline-wrap">
           <div class="timeline-title">状态时间线</div>
@@ -145,6 +145,8 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { getMerchantOrders } from '@/api/merchant'
 import { Message } from '@/utils/message'
+import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
+import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
 
 const orders = ref([])
 const activeTab = ref('all')
@@ -152,12 +154,11 @@ const keyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const detailOrder = ref(null)
-const defaultThumb = 'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22120%22%3E%3Crect width=%22220%22 height=%22120%22 rx=%2212%22 fill=%22%23eef5ef%22/%3E%3Ctext x=%22110%22 y=%2268%22 font-size=%2232%22 text-anchor=%22middle%22%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E'
 
 onMounted(async () => {
   try {
     const res = await getMerchantOrders()
-    orders.value = res.data || []
+    orders.value = (res.data || []).map(normalizeProductRecord)
   } catch (error) {
     console.error(error)
   }
@@ -247,17 +248,8 @@ const printDetail = () => {
   w.print()
 }
 
-const resolveImageSrc = (raw) => {
-  if (!raw) return defaultThumb
-  if (raw.startsWith('data:image') || /^https?:\/\//.test(raw)) return raw
-  if (raw.startsWith('/uploads/')) {
-    return `${window.location.protocol}//${window.location.hostname}:8080${raw}`
-  }
-  return defaultThumb
-}
-
 const handleImgError = (e) => {
-  e.target.src = defaultThumb
+  e.target.src = buildNameBasedProductImage({}, 220)
 }
 
 const getTimelineSteps = (order) => {

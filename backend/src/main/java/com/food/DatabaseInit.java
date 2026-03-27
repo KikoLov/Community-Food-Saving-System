@@ -59,6 +59,7 @@ public class DatabaseInit {
                 "description TEXT," +
                 "original_price DECIMAL(10,2)," +
                 "discount_price DECIMAL(10,2)," +
+                "min_price DECIMAL(10,2)," +
                 "stock INT DEFAULT 0," +
                 "image_url VARCHAR(500)," +
                 "status INT DEFAULT 1," +

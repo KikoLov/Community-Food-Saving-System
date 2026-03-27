@@ -11,7 +11,9 @@ import com.food.service.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +31,7 @@ public class AdminController {
     private final CarbonService carbonService;
     private final OrderService orderService;
     private final OperationLogService operationLogService;
+    private final JdbcTemplate jdbcTemplate;
 
     /**
      * 获取所有商户列表
@@ -226,5 +229,129 @@ public class AdminController {
     @GetMapping("/operation-logs")
     public Result<List<OperationLog>> getOperationLogs() {
         return Result.success(operationLogService.listLogs());
+    }
+
+    /**
+     * 修复演示数据中文乱码（仅管理员）
+     * 说明：
+     * 1) 将关键表字符集转换为 utf8mb4
+     * 2) 修复绿城小区、阳光花园社区名称
+     * 3) 修复 merchant1/merchant2 商户信息与其商品中文名称
+     */
+    @PostMapping("/fix-demo-garbled-text")
+    public Result<Map<String, Object>> fixDemoGarbledText(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        List<String> steps = new ArrayList<>();
+
+        jdbcTemplate.execute("ALTER TABLE sys_community CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        steps.add("sys_community charset -> utf8mb4");
+        jdbcTemplate.execute("ALTER TABLE biz_merchant CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        steps.add("biz_merchant charset -> utf8mb4");
+        jdbcTemplate.execute("ALTER TABLE biz_product CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        steps.add("biz_product charset -> utf8mb4");
+
+        int c3 = jdbcTemplate.update(
+                "UPDATE sys_community SET " +
+                        "community_name=CONVERT(0xE7BBBFE59F8EE5B08FE58CBA USING utf8mb4), " +
+                        "province=CONVERT(0xE4B88AE6B5B7E5B882 USING utf8mb4), " +
+                        "city=CONVERT(0xE4B88AE6B5B7E5B882 USING utf8mb4), " +
+                        "district=CONVERT(0xE6B5A6E4B89CE696B0E58CBA USING utf8mb4), " +
+                        "address=CONVERT(0xE6B5A6E4B89CE696B0E58CBAE4B896E7BAAAE5A4A7E98193313030E58FB7 USING utf8mb4), " +
+                        "status=1 WHERE community_id=3"
+        );
+        int c4 = jdbcTemplate.update(
+                "UPDATE sys_community SET " +
+                        "community_name=CONVERT(0xE998B3E58589E88AB1E59BAD USING utf8mb4), " +
+                        "province=CONVERT(0xE58C97E4BAACE5B882 USING utf8mb4), " +
+                        "city=CONVERT(0xE58C97E4BAACE5B882 USING utf8mb4), " +
+                        "district=CONVERT(0xE69C9DE998B3E58CBA USING utf8mb4), " +
+                        "address=CONVERT(0xE69C9DE998B3E58CBAE5BBBAE59BBDE8B7AF3838E58FB7 USING utf8mb4), " +
+                        "status=1 WHERE community_id=4"
+        );
+        steps.add("community rows updated: c3=" + c3 + ", c4=" + c4);
+
+        jdbcTemplate.update(
+                "UPDATE biz_merchant SET " +
+                        "merchant_name=CONVERT(0xE7BBBFE59F8EE5B08FE58CBAE7A4BEE58CBAE4BEBFE588A9E5BA97 USING utf8mb4), " +
+                        "address=CONVERT(0xE6B5A6E4B89CE696B0E58CBAE4B896E7BAAAE5A4A7E98193313030E58FB7 USING utf8mb4), " +
+                        "description='demo store' " +
+                        "WHERE user_id=(SELECT user_id FROM sys_user WHERE user_name='merchant1' LIMIT 1)"
+        );
+        jdbcTemplate.update(
+                "UPDATE biz_merchant SET " +
+                        "merchant_name=CONVERT(0xE998B3E58589E88AB1E59BADE7A4BEE58CBAE4BEBFE588A9E5BA97 USING utf8mb4), " +
+                        "address=CONVERT(0xE69C9DE998B3E58CBAE5BBBAE59BBDE8B7AF3838E58FB7 USING utf8mb4), " +
+                        "description='demo store' " +
+                        "WHERE user_id=(SELECT user_id FROM sys_user WHERE user_name='merchant2' LIMIT 1)"
+        );
+        steps.add("merchant profile text updated");
+
+        List<Long> m7Ids = jdbcTemplate.queryForList(
+                "SELECT product_id FROM biz_product WHERE merchant_id=7 ORDER BY product_id ASC",
+                Long.class
+        );
+        List<Long> m8Ids = jdbcTemplate.queryForList(
+                "SELECT product_id FROM biz_product WHERE merchant_id=8 ORDER BY product_id ASC",
+                Long.class
+        );
+        if (m7Ids.size() >= 1) {
+            jdbcTemplate.update("UPDATE biz_product SET product_name=CONVERT(0xE7BBBFE59F8EE696B0E9B29CE7899BE5A5B6 USING utf8mb4), description='demo product' WHERE product_id=?",
+                    m7Ids.get(0));
+        }
+        if (m7Ids.size() >= 2) {
+            jdbcTemplate.update("UPDATE biz_product SET product_name=CONVERT(0xE7BBBFE59F8EE585A8E9BAA6E99DA2E58C85 USING utf8mb4), description='demo product' WHERE product_id=?",
+                    m7Ids.get(1));
+        }
+        if (m7Ids.size() >= 3) {
+            jdbcTemplate.update("UPDATE biz_product SET product_name=CONVERT(0xE7BBBFE59F8EE88BB9E69E9CE69E9CE58887 USING utf8mb4), description='demo product' WHERE product_id=?",
+                    m7Ids.get(2));
+        }
+
+        if (m8Ids.size() >= 1) {
+            jdbcTemplate.update("UPDATE biz_product SET product_name=CONVERT(0xE998B3E58589E58E9FE591B3E985B8E5A5B6 USING utf8mb4), description='demo product' WHERE product_id=?",
+                    m8Ids.get(0));
+        }
+        if (m8Ids.size() >= 2) {
+            jdbcTemplate.update("UPDATE biz_product SET product_name=CONVERT(0xE998B3E58589E89B8BE7B395E58DB7 USING utf8mb4), description='demo product' WHERE product_id=?",
+                    m8Ids.get(1));
+        }
+        if (m8Ids.size() >= 3) {
+            jdbcTemplate.update("UPDATE biz_product SET product_name=CONVERT(0xE998B3E58589E9B29CE6A999E6B181 USING utf8mb4), description='demo product' WHERE product_id=?",
+                    m8Ids.get(2));
+        }
+        steps.add("product text updated for merchant_id=7/8");
+
+        // 对已写入的“UTF-8字节被按latin1解释”的脏值做回转修复
+        jdbcTemplate.execute(
+                "UPDATE sys_community SET " +
+                        "community_name = CONVERT(BINARY(CONVERT(community_name USING latin1)) USING utf8mb4), " +
+                        "province = CONVERT(BINARY(CONVERT(province USING latin1)) USING utf8mb4), " +
+                        "city = CONVERT(BINARY(CONVERT(city USING latin1)) USING utf8mb4), " +
+                        "district = CONVERT(BINARY(CONVERT(district USING latin1)) USING utf8mb4), " +
+                        "address = CONVERT(BINARY(CONVERT(address USING latin1)) USING utf8mb4) " +
+                        "WHERE community_id IN (3,4)"
+        );
+        jdbcTemplate.execute(
+                "UPDATE biz_merchant SET " +
+                        "merchant_name = CONVERT(BINARY(CONVERT(merchant_name USING latin1)) USING utf8mb4), " +
+                        "address = CONVERT(BINARY(CONVERT(address USING latin1)) USING utf8mb4), " +
+                        "description = CONVERT(BINARY(CONVERT(description USING latin1)) USING utf8mb4) " +
+                        "WHERE merchant_id IN (7,8)"
+        );
+        steps.add("mojibake transcoding repaired (latin1 -> utf8mb4)");
+
+        operationLogService.logOperation(
+                loginUser,
+                "FIX_GARBLED_TEXT",
+                "SYSTEM",
+                null,
+                "DEMO_DATA",
+                "管理员执行演示数据乱码修复"
+        );
+
+        return Result.success(Map.of(
+                "message", "乱码修复完成",
+                "steps", steps
+        ));
     }
 }

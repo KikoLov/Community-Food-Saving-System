@@ -1,6 +1,9 @@
 package com.food.service;
 
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.food.dto.OrderCreateDTO;
 import com.food.entity.Cart;
+import com.food.entity.Order;
 import com.food.entity.Product;
 import com.food.mapper.CartMapper;
 import com.food.mapper.ProductMapper;
@@ -9,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -20,6 +24,7 @@ public class CartService {
 
     private final CartMapper cartMapper;
     private final ProductMapper productMapper;
+    private final OrderService orderService;
 
     /**
      * 添加商品到购物车
@@ -51,7 +56,6 @@ public class CartService {
         if (existCart != null) {
             // 更新数量
             existCart.setQuantity(existCart.getQuantity() + quantity);
-            existCart.setUpdateTime(LocalDateTime.now());
             cartMapper.updateById(existCart);
             return existCart;
         }
@@ -66,7 +70,6 @@ public class CartService {
         cart.setDiscountPrice(product.getDiscountPrice());
         cart.setExpireDatetime(product.getExpireDatetime());
         cart.setStock(product.getStock());
-        cart.setCreateTime(LocalDateTime.now());
         cartMapper.insert(cart);
 
         return cart;
@@ -98,7 +101,6 @@ public class CartService {
         }
 
         cart.setQuantity(quantity);
-        cart.setUpdateTime(LocalDateTime.now());
         cartMapper.updateById(cart);
 
         return cart;
@@ -126,5 +128,38 @@ public class CartService {
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Cart>()
                         .eq(Cart::getUserId, userId)
         );
+    }
+
+    /**
+     * 购物车结算（可指定结算项；不传则默认结算全部）
+     */
+    @Transactional
+    public List<Order> checkoutCart(Long userId, List<Long> cartIds) {
+        LambdaQueryWrapper<Cart> wrapper = new LambdaQueryWrapper<Cart>()
+                .eq(Cart::getUserId, userId);
+        if (cartIds != null && !cartIds.isEmpty()) {
+            wrapper.in(Cart::getCartId, cartIds);
+        }
+        List<Cart> items = cartMapper.selectList(wrapper);
+        if (items == null || items.isEmpty()) {
+            throw new RuntimeException("购物车为空，无法结算");
+        }
+
+        List<Order> createdOrders = new ArrayList<>();
+        for (Cart item : items) {
+            if (item.getQuantity() == null || item.getQuantity() <= 0) {
+                throw new RuntimeException("购物车存在非法数量，请刷新后重试");
+            }
+            OrderCreateDTO dto = new OrderCreateDTO();
+            dto.setProductId(item.getProductId());
+            dto.setQuantity(item.getQuantity());
+            createdOrders.add(orderService.createOrder(userId, dto));
+        }
+
+        List<Long> doneCartIds = items.stream().map(Cart::getCartId).toList();
+        if (!doneCartIds.isEmpty()) {
+            cartMapper.deleteBatchIds(doneCartIds);
+        }
+        return createdOrders;
     }
 }

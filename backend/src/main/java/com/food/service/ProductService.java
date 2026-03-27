@@ -9,12 +9,19 @@ import com.food.entity.Product;
 import com.food.mapper.CategoryMapper;
 import com.food.mapper.MerchantMapper;
 import com.food.mapper.ProductMapper;
+import com.food.util.DemoTextNormalizeUtil;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -31,8 +38,26 @@ public class ProductService {
     private final MerchantMapper merchantMapper;
     private final CategoryMapper categoryMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final String STOCK_KEY_PREFIX = "product:stock:";
+    /**
+     * 动态定价默认窗口（小时）：用于缺少创建时间时估算价格衰减区间
+     */
+    private static final long DEFAULT_PRICING_WINDOW_HOURS = 72;
+
+    @PostConstruct
+    public void ensureDynamicPricingColumn() {
+        Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM information_schema.COLUMNS " +
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'biz_product' AND COLUMN_NAME = 'min_price'",
+                Integer.class
+        );
+        if (exists == null || exists == 0) {
+            jdbcTemplate.execute("ALTER TABLE biz_product ADD COLUMN min_price DECIMAL(10,2) DEFAULT NULL COMMENT '最低底价'");
+        }
+        jdbcTemplate.execute("UPDATE biz_product SET min_price = discount_price WHERE min_price IS NULL");
+    }
 
     /**
      * 商户添加商品
@@ -53,6 +78,7 @@ public class ProductService {
         // 转换DTO为实体
         Product product = new Product();
         BeanUtils.copyProperties(productDTO, product);
+        normalizeAndApplyDynamicPrice(product, productDTO.getExpireDatetime());
         if (product.getWarningHours() == null) {
             product.setWarningHours(24);
         }
@@ -87,6 +113,7 @@ public class ProductService {
         }
 
         BeanUtils.copyProperties(productDTO, product);
+        normalizeAndApplyDynamicPrice(product, productDTO.getExpireDatetime());
         product.setUpdateTime(LocalDateTime.now());
         productMapper.updateById(product);
 
@@ -164,21 +191,33 @@ public class ProductService {
         Page<Product> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<Product> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Product::getMerchantId, merchantId).orderByDesc(Product::getCreateTime);
-        return productMapper.selectPage(page, wrapper);
+        Page<Product> result = productMapper.selectPage(page, wrapper);
+        if (result.getRecords() != null) {
+            result.getRecords().forEach(DemoTextNormalizeUtil::normalizeProduct);
+        }
+        return result;
     }
 
     /**
      * 居民获取商品列表(按社区)
      */
     public List<Product> getProductsByCommunity(Long communityId) {
-        return productMapper.selectProductListByCommunity(communityId);
+        List<Product> list = productMapper.selectProductListByCommunity(communityId);
+        if (list != null) {
+            list.forEach(DemoTextNormalizeUtil::normalizeProduct);
+        }
+        return list;
     }
 
     /**
      * 获取预警商品列表
      */
     public List<Product> getWarningProducts(Long merchantId) {
-        return productMapper.selectWarningProducts(merchantId);
+        List<Product> list = productMapper.selectWarningProducts(merchantId);
+        if (list != null) {
+            list.forEach(DemoTextNormalizeUtil::normalizeProduct);
+        }
+        return list;
     }
 
     /**
@@ -245,9 +284,111 @@ public class ProductService {
         if (product != null && product.getCategoryId() != null) {
             Category category = categoryMapper.selectById(product.getCategoryId());
             if (category != null) {
-                product.setCategoryName(category.getCategoryName());
+                product.setCategoryName(DemoTextNormalizeUtil.normalizeCategoryName(category.getCategoryName()));
             }
         }
-        return product;
+        return DemoTextNormalizeUtil.normalizeProduct(product);
+    }
+
+    /**
+     * 定时刷新动态定价（每分钟）
+     */
+    @Scheduled(cron = "${app.pricing.refresh-cron:0 * * * * ?}")
+    @Transactional
+    public void refreshDynamicPricingJob() {
+        refreshDynamicPricingNow();
+    }
+
+    /**
+     * 立即刷新动态定价（可被手动调用）
+     */
+    @Transactional
+    public int refreshDynamicPricingNow() {
+        LocalDateTime now = LocalDateTime.now();
+        List<Product> products = productMapper.selectList(
+                new LambdaQueryWrapper<Product>()
+                        .gt(Product::getExpireDatetime, now)
+                        .in(Product::getStatus, 0, 1)
+                        .gt(Product::getStock, 0)
+        );
+        int changed = 0;
+        for (Product p : products) {
+            BigDecimal original = safeMoney(p.getOriginalPrice());
+            BigDecimal min = resolveMinPrice(p);
+            BigDecimal computed = calculateDynamicPrice(original, min, p.getCreateTime(), p.getExpireDatetime(), now);
+            if (p.getDiscountPrice() == null || p.getDiscountPrice().compareTo(computed) != 0 || p.getMinPrice() == null) {
+                Product patch = new Product();
+                patch.setProductId(p.getProductId());
+                patch.setMinPrice(min);
+                patch.setDiscountPrice(computed);
+                patch.setUpdateTime(now);
+                productMapper.updateById(patch);
+                changed++;
+            }
+        }
+        return changed;
+    }
+
+    private void normalizeAndApplyDynamicPrice(Product product, LocalDateTime expireDatetime) {
+        BigDecimal original = safeMoney(product.getOriginalPrice());
+        if (original.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new RuntimeException("原价必须大于0");
+        }
+        BigDecimal min = resolveMinPrice(product);
+        if (min.compareTo(original) > 0) {
+            throw new RuntimeException("最低底价不能高于原价");
+        }
+        if (expireDatetime == null) {
+            throw new RuntimeException("过期时间不能为空");
+        }
+        product.setOriginalPrice(original);
+        product.setMinPrice(min);
+        product.setDiscountPrice(calculateDynamicPrice(original, min, product.getCreateTime(), expireDatetime, LocalDateTime.now()));
+    }
+
+    private BigDecimal resolveMinPrice(Product product) {
+        if (product.getMinPrice() != null) {
+            return safeMoney(product.getMinPrice());
+        }
+        if (product.getDiscountPrice() != null) {
+            return safeMoney(product.getDiscountPrice());
+        }
+        BigDecimal fallback = safeMoney(product.getOriginalPrice()).multiply(new BigDecimal("0.50"));
+        return safeMoney(fallback);
+    }
+
+    private BigDecimal safeMoney(BigDecimal value) {
+        if (value == null) {
+            return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+        }
+        return value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * 线性时间衰减：price = min + (original - min) * ratio
+     */
+    private BigDecimal calculateDynamicPrice(BigDecimal original,
+                                             BigDecimal min,
+                                             LocalDateTime createTime,
+                                             LocalDateTime expireTime,
+                                             LocalDateTime now) {
+        if (expireTime == null || !expireTime.isAfter(now)) {
+            return min;
+        }
+        LocalDateTime start = createTime != null && createTime.isBefore(expireTime)
+                ? createTime
+                : expireTime.minusHours(DEFAULT_PRICING_WINDOW_HOURS);
+        long totalSeconds = Math.max(1, Duration.between(start, expireTime).getSeconds());
+        long remainSeconds = Math.max(0, Duration.between(now, expireTime).getSeconds());
+        BigDecimal ratio = BigDecimal.valueOf(remainSeconds)
+                .divide(BigDecimal.valueOf(totalSeconds), 6, RoundingMode.HALF_UP);
+        BigDecimal result = min.add(original.subtract(min).multiply(ratio));
+        if (result.compareTo(original) > 0) {
+            result = original;
+        }
+        if (result.compareTo(min) < 0) {
+            result = min;
+        }
+        return result.setScale(2, RoundingMode.HALF_UP);
     }
 }

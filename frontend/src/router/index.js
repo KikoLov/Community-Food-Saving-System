@@ -96,6 +96,11 @@ const routes = [
         component: () => import('@/views/merchant/Settings.vue')
       },
       {
+        path: 'reviews',
+        name: 'MerchantReviews',
+        component: () => import('@/views/merchant/Reviews.vue')
+      },
+      {
         path: 'notifications',
         name: 'MerchantNotifications',
         component: () => import('@/views/common/Notifications.vue')

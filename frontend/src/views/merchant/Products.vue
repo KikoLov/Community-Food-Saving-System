@@ -71,6 +71,7 @@
                 </td>
                 <td>
                   <p class="mb-1"><small class="text-muted">原价: ¥{{ row.originalPrice }}</small></p>
+                  <p class="mb-1"><small class="text-muted">底价: ¥{{ row.minPrice ?? row.discountPrice }}</small></p>
                   <p class="mb-0"><strong class="text-danger">¥{{ row.discountPrice }}</strong></p>
                 </td>
                 <td>{{ row.stock }}</td>
@@ -161,15 +162,19 @@
                 </div>
               </div>
               <div class="row">
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                   <label class="form-label">原价 *</label>
                   <input type="number" class="form-control" v-model="productForm.originalPrice" min="0" step="0.01">
                 </div>
-                <div class="col-md-4 mb-3">
-                  <label class="form-label">折扣价 *</label>
-                  <input type="number" class="form-control" v-model="productForm.discountPrice" min="0" step="0.01">
+                <div class="col-md-3 mb-3">
+                  <label class="form-label">最低底价 *</label>
+                  <input type="number" class="form-control" v-model="productForm.minPrice" min="0" step="0.01">
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
+                  <label class="form-label">当前售价(自动)</label>
+                  <input type="number" class="form-control" :value="autoPricingPreview" disabled>
+                </div>
+                <div class="col-md-3 mb-3">
                   <label class="form-label">库存 *</label>
                   <input type="number" class="form-control" v-model="productForm.stock" min="0">
                 </div>
@@ -221,6 +226,8 @@ import {
 } from '@/api/merchant'
 import { useUserStore } from '@/store/user'
 import { Message } from '@/utils/message'
+import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
+import { normalizeProductRecord, normalizeCategoryName } from '@/utils/demoTextNormalizer'
 
 const userStore = useUserStore()
 
@@ -230,7 +237,7 @@ const categories = ref([])
 let productModal = null
 const dialogTitle = ref('添加商品')
 const isEdit = ref(false)
-const productImagePreview = ref('data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22%3E%3Crect width=%22120%22 height=%22120%22 rx=%2216%22 fill=%22%23eef5ef%22/%3E%3Ctext x=%2260%22 y=%2267%22 font-size=%2232%22 text-anchor=%22middle%22%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E')
+const productImagePreview = ref(buildNameBasedProductImage({}, 120))
 
 const productForm = reactive({
   productId: null,
@@ -238,6 +245,7 @@ const productForm = reactive({
   categoryId: null,
   originalPrice: 0,
   discountPrice: 0,
+  minPrice: 0,
   stock: 0,
   expireDate: '',
   expireDatetime: '',
@@ -255,7 +263,7 @@ onMounted(async () => {
 const loadProducts = async () => {
   try {
     const res = await getMerchantProducts(1, 100)
-    products.value = res.data || []
+    products.value = (res.data || []).map(normalizeProductRecord)
     selectedIds.value = []
   } catch (error) {
     console.error(error)
@@ -285,7 +293,10 @@ const toggleSelectAll = (checked) => {
 const loadCategories = async () => {
   try {
     const res = await getCategories()
-    categories.value = res.data || []
+    categories.value = (res.data || []).map((c) => ({
+      ...c,
+      categoryName: normalizeCategoryName(c.categoryName)
+    }))
   } catch (error) {
     console.error(error)
   }
@@ -297,44 +308,7 @@ const formatDate = (datetime) => {
 }
 
 const getProductImage = (row) => {
-  if (row?.productImage) return row.productImage
-  return buildGeneratedThumb(row)
-}
-
-const pickThumbStyle = (row) => {
-  const text = `${row?.productName || ''} ${row?.categoryName || ''}`.toLowerCase()
-  if (/(bread|cake|bakery|面包|蛋糕|烘焙)/.test(text)) {
-    return { bg1: '#ffe0b2', bg2: '#ffb74d', icon: '🥐', title: 'Bakery' }
-  }
-  if (/(milk|dairy|yogurt|乳|奶|酸奶)/.test(text)) {
-    return { bg1: '#e3f2fd', bg2: '#90caf9', icon: '🥛', title: 'Dairy' }
-  }
-  if (/(drink|juice|tea|coffee|饮料|果汁|茶|咖啡)/.test(text)) {
-    return { bg1: '#f3e5f5', bg2: '#ce93d8', icon: '🧃', title: 'Drink' }
-  }
-  if (/(fruit|vegetable|fresh|生鲜|水果|蔬菜)/.test(text)) {
-    return { bg1: '#e8f5e9', bg2: '#81c784', icon: '🍎', title: 'Fresh' }
-  }
-  return { bg1: '#eceff1', bg2: '#b0bec5', icon: '🍱', title: 'Food' }
-}
-
-const buildGeneratedThumb = (row) => {
-  const style = pickThumbStyle(row)
-  const title = String(style.title).replace(/&/g, '&amp;')
-  const svg = `
-<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120">
-  <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="${style.bg1}"/>
-      <stop offset="100%" stop-color="${style.bg2}"/>
-    </linearGradient>
-  </defs>
-  <rect width="120" height="120" rx="16" fill="url(#g)"/>
-  <circle cx="60" cy="48" r="24" fill="rgba(255,255,255,0.55)"/>
-  <text x="60" y="56" text-anchor="middle" font-size="22">${style.icon}</text>
-  <text x="60" y="96" text-anchor="middle" font-size="12" font-weight="700" fill="#2f3a33">${title}</text>
-</svg>`
-  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
+  return resolveProductImageSrc(row, { size: 120 })
 }
 
 const getStatusClass = (status) => {
@@ -352,7 +326,7 @@ const handleAdd = () => {
   isEdit.value = false
   Object.assign(productForm, {
     productId: null, productName: '', categoryId: null,
-    originalPrice: 0, discountPrice: 0, stock: 0,
+    originalPrice: 0, discountPrice: 0, minPrice: 0, stock: 0,
     expireDate: '', expireDatetime: '', warningHours: 24, description: '', status: 1, productImage: ''
   })
   productImagePreview.value = getProductImage(productForm)
@@ -363,6 +337,7 @@ const handleEdit = (row) => {
   dialogTitle.value = '编辑商品'
   isEdit.value = true
   Object.assign(productForm, row, {
+    minPrice: row.minPrice ?? row.discountPrice ?? 0,
     expireDate: row.expireDate,
     expireDatetime: row.expireDatetime ? row.expireDatetime.substring(11, 19) : ''
   })
@@ -502,6 +477,20 @@ const handleBatchDelete = async () => {
 
 const handleSubmit = async (targetStatus = 1) => {
   try {
+    const original = Number(productForm.originalPrice || 0)
+    const min = Number(productForm.minPrice || 0)
+    if (original <= 0) {
+      Message.warning('原价必须大于0')
+      return
+    }
+    if (min <= 0) {
+      Message.warning('最低底价必须大于0')
+      return
+    }
+    if (min > original) {
+      Message.warning('最低底价不能高于原价')
+      return
+    }
     productForm.status = targetStatus
     if (isEdit.value) {
       await updateProduct(productForm.productId, productForm)
@@ -518,6 +507,21 @@ const handleSubmit = async (targetStatus = 1) => {
     console.error(error)
   }
 }
+
+const autoPricingPreview = computed(() => {
+  const original = Number(productForm.originalPrice || 0)
+  const min = Number(productForm.minPrice || 0)
+  if (original <= 0 || min <= 0 || min > original) return ''
+  const now = Date.now()
+  const datePart = productForm.expireDate || ''
+  const timePart = productForm.expireDatetime || ''
+  const expireTs = new Date(`${datePart}T${timePart || '23:59:59'}`).getTime()
+  if (!Number.isFinite(expireTs)) return ''
+  const startTs = expireTs - 72 * 3600 * 1000
+  const ratio = Math.max(0, Math.min(1, (expireTs - now) / Math.max(1, expireTs - startTs)))
+  const dynamic = min + (original - min) * ratio
+  return dynamic.toFixed(2)
+})
 
 const handleImport = async (event) => {
   const file = event.target.files[0]

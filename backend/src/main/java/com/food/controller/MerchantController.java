@@ -2,10 +2,12 @@ package com.food.controller;
 
 import com.food.common.Result;
 import com.food.dto.ProductDTO;
+import com.food.dto.ReviewReplyDTO;
 import com.food.dto.VerifyCodeDTO;
 import com.food.entity.Merchant;
 import com.food.entity.Order;
 import com.food.entity.Product;
+import com.food.entity.Review;
 import com.food.exception.RateLimitException;
 import com.food.security.LoginUser;
 import com.food.service.MerchantService;
@@ -14,6 +16,7 @@ import com.food.service.OrderService;
 import com.food.service.ProductService;
 import com.food.service.CategoryService;
 import com.food.service.RateLimitService;
+import com.food.service.ReviewService;
 import com.food.entity.Category;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -44,6 +47,7 @@ public class MerchantController {
     private final CategoryService categoryService;
     private final OperationLogService operationLogService;
     private final RateLimitService rateLimitService;
+    private final ReviewService reviewService;
 
     /**
      * 获取商户资料
@@ -396,5 +400,42 @@ public class MerchantController {
     @GetMapping("/categories")
     public Result<List<Category>> getCategories() {
         return Result.success(categoryService.getAllCategories());
+    }
+
+    /**
+     * 商家查看评价
+     */
+    @GetMapping("/reviews")
+    public Result<List<Review>> getReviews(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        Merchant merchant = merchantService.getMerchantByUserId(loginUser.getUserId());
+        if (merchant == null) {
+            return Result.success(List.of());
+        }
+        return Result.success(reviewService.getMerchantReviews(merchant.getMerchantId()));
+    }
+
+    /**
+     * 商家回复评价
+     */
+    @PostMapping("/reviews/{id}/reply")
+    public Result<Review> replyReview(Authentication authentication,
+                                      @PathVariable("id") Long reviewId,
+                                      @Valid @RequestBody ReviewReplyDTO dto) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        Merchant merchant = merchantService.getMerchantByUserId(loginUser.getUserId());
+        if (merchant == null) {
+            return Result.error("请先完善商户信息");
+        }
+        Review review = reviewService.replyReview(merchant.getMerchantId(), reviewId, dto.getReplyContent());
+        operationLogService.logOperation(
+                loginUser,
+                "REPLY_REVIEW",
+                "REVIEW",
+                reviewId,
+                review.getProductName(),
+                "商家回复评价"
+        );
+        return Result.success(review);
     }
 }

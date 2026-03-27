@@ -102,6 +102,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { getMerchantOrders, previewVerifyOrder, verifyOrder } from '@/api/merchant'
 import { Message } from '@/utils/message'
+import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
 
 const verifyCode = ref('')
 const loadingPreview = ref(false)
@@ -122,7 +123,7 @@ onMounted(async () => {
 
 const loadOrders = async () => {
   const res = await getMerchantOrders()
-  orders.value = res.data || []
+  orders.value = (res.data || []).map(normalizeProductRecord)
 }
 
 const handlePreview = async () => {
@@ -133,7 +134,7 @@ const handlePreview = async () => {
   loadingPreview.value = true
   try {
     const res = await previewVerifyOrder(verifyCode.value)
-    previewOrder.value = res.data
+    previewOrder.value = normalizeProductRecord(res.data)
   } catch (error) {
     previewOrder.value = null
     const msg = error?.message || '核销预览失败'
@@ -149,7 +150,7 @@ const confirmVerify = async () => {
   loadingVerify.value = true
   try {
     const res = await verifyOrder(verifyCode.value)
-    previewOrder.value = res.data
+    previewOrder.value = normalizeProductRecord(res.data)
     Message.success('核销成功')
     verifyCode.value = ''
     await loadOrders()

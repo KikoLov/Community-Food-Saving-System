@@ -51,6 +51,12 @@
             <span class="menu-text">店铺设置</span>
           </router-link>
         </li>
+        <li class="sidebar-item" :class="{ active: isActive('/merchant/reviews') }">
+          <router-link to="/merchant/reviews" class="sidebar-link">
+            <span class="menu-icon">⭐</span>
+            <span class="menu-text">评价管理</span>
+          </router-link>
+        </li>
         <li class="sidebar-item" :class="{ active: isActive('/merchant/notifications') }">
           <router-link to="/merchant/notifications" class="sidebar-link notify-link">
             <span class="menu-icon">🔔</span>

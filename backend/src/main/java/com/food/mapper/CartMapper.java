@@ -19,10 +19,11 @@ public interface CartMapper extends BaseMapper<Cart> {
      */
     @Select("""
         SELECT c.*, p.product_name, p.product_image, p.discount_price,
-               p.expire_datetime, p.stock as product_stock
+               p.expire_datetime, p.stock as stock
         FROM biz_cart c
         LEFT JOIN biz_product p ON c.product_id = p.product_id
         WHERE c.user_id = #{userId}
+          AND c.deleted = 0
           AND p.status = 1
           AND p.stock > 0
         ORDER BY c.create_time DESC

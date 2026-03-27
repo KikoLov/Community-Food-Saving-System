@@ -133,6 +133,7 @@ public class TestController {
                 "description TEXT," +
                 "original_price DECIMAL(10,2)," +
                 "discount_price DECIMAL(10,2)," +
+                "min_price DECIMAL(10,2)," +
                 "stock INT DEFAULT 0," +
                 "expire_datetime DATETIME," +
                 "image_url VARCHAR(500)," +

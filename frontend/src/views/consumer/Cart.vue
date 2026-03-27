@@ -66,7 +66,7 @@
             <span style="margin-left: 20px; font-size: 1.1em;">合计：</span>
             <span style="font-size: 1.5em; font-weight: bold; color: #dc3545;">¥{{ totalAmount }}</span>
           </div>
-          <button class="btn btn-primary btn-lg" @click="handleCheckout" :disabled="!cartList || cartList.length === 0">
+          <button class="btn btn-primary btn-lg" @click="handleCheckout" :disabled="checkingOut || !cartList || cartList.length === 0">
             💳 去结算
           </button>
         </div>
@@ -77,10 +77,14 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getCartList, updateCart, deleteCart } from '@/api/consumer'
+import { useRouter } from 'vue-router'
+import { getCartList, updateCart, deleteCart, checkoutCart } from '@/api/consumer'
 import { Message } from '@/utils/message'
+import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
 
 const cartList = ref([])
+const checkingOut = ref(false)
+const router = useRouter()
 
 const totalItems = computed(() => {
   return cartList.value.reduce((sum, item) => sum + item.quantity, 0)
@@ -97,7 +101,7 @@ onMounted(() => {
 const loadCart = async () => {
   try {
     const res = await getCartList()
-    cartList.value = res.data || []
+    cartList.value = (res.data || []).map(normalizeProductRecord)
   } catch (error) {
     Message.error('加载购物车失败')
     console.error(error)
@@ -130,8 +134,28 @@ const handleDelete = async (cartId) => {
   }
 }
 
-const handleCheckout = () => {
-  Message.info('结算功能开发中...')
+const handleCheckout = async () => {
+  if (!cartList.value || cartList.value.length === 0) {
+    Message.warning('购物车为空')
+    return
+  }
+  if (!confirm('确认结算当前购物车商品吗？')) {
+    return
+  }
+  checkingOut.value = true
+  try {
+    const cartIds = cartList.value.map(item => item.cartId)
+    const res = await checkoutCart(cartIds)
+    const count = Array.isArray(res?.data) ? res.data.length : 0
+    Message.success(`结算成功，已创建 ${count} 笔订单`)
+    await loadCart()
+    await router.push('/consumer/orders')
+  } catch (error) {
+    Message.error(error?.response?.data?.msg || '结算失败')
+    console.error(error)
+  } finally {
+    checkingOut.value = false
+  }
 }
 
 const formatDateTime = (dateStr) => {

@@ -49,6 +49,11 @@ public class UserProfile extends BaseEntity {
     private BigDecimal totalFoodSaved;
 
     /**
+     * 钱包余额（顾客下单使用）
+     */
+    private BigDecimal walletBalance;
+
+    /**
      * 冗余字段：社区名称
      */
     @TableField(exist = false)

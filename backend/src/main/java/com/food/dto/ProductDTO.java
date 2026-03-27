@@ -50,11 +50,16 @@ public class ProductDTO {
     private BigDecimal originalPrice;
 
     /**
-     * 折扣价
+     * 折扣价（由系统动态计算，可不传）
      */
-    @NotNull(message = "折扣价不能为空")
-    @Positive(message = "折扣价必须为正数")
     private BigDecimal discountPrice;
+
+    /**
+     * 最低底价
+     */
+    @NotNull(message = "最低底价不能为空")
+    @Positive(message = "最低底价必须为正数")
+    private BigDecimal minPrice;
 
     /**
      * 库存数量

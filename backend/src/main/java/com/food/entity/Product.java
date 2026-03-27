@@ -56,6 +56,11 @@ public class Product extends BaseEntity {
     private BigDecimal discountPrice;
 
     /**
+     * 最低底价（动态定价下限）
+     */
+    private BigDecimal minPrice;
+
+    /**
      * 库存数量
      */
     private Integer stock;

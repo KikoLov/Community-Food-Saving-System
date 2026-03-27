@@ -1,7 +1,10 @@
 package com.food.controller;
 
 import com.food.common.Result;
+import com.food.dto.CartCheckoutDTO;
+import com.food.dto.MerchantRatingSummaryDTO;
 import com.food.dto.OrderCreateDTO;
+import com.food.dto.ReviewCreateDTO;
 import com.food.entity.*;
 import com.food.exception.RateLimitException;
 import com.food.security.LoginUser;
@@ -11,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +34,7 @@ public class ConsumerController {
     private final CommunityService communityService;
     private final RateLimitService rateLimitService;
     private final IdempotencyService idempotencyService;
+    private final ReviewService reviewService;
 
     /**
      * 获取商品列表(按社区)
@@ -94,6 +99,18 @@ public class ConsumerController {
         LoginUser loginUser = (LoginUser) authentication.getPrincipal();
         cartService.deleteCartItem(cartId, loginUser.getUserId());
         return Result.success();
+    }
+
+    /**
+     * 购物车结算
+     */
+    @PostMapping("/cart/checkout")
+    public Result<List<Order>> checkoutCart(Authentication authentication,
+                                            @RequestBody(required = false) CartCheckoutDTO dto) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        List<Long> cartIds = dto == null ? null : dto.getCartIds();
+        List<Order> orders = cartService.checkoutCart(loginUser.getUserId(), cartIds);
+        return Result.success(orders);
     }
 
     /**
@@ -208,5 +225,49 @@ public class ConsumerController {
     public Result<List<Community>> communities() {
         List<Community> communities = communityService.getAllCommunities();
         return Result.success(communities);
+    }
+
+    /**
+     * 上传评价图片
+     */
+    @PostMapping("/reviews/upload-image")
+    public Result<String> uploadReviewImage(@RequestParam MultipartFile file) {
+        return Result.success(reviewService.uploadReviewImage(file));
+    }
+
+    /**
+     * 提交评价
+     */
+    @PostMapping("/reviews")
+    public Result<Review> createReview(Authentication authentication, @Valid @RequestBody ReviewCreateDTO dto) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        Review review = reviewService.createReview(loginUser.getUserId(), dto);
+        return Result.success(review);
+    }
+
+    /**
+     * 我的评价列表
+     */
+    @GetMapping("/reviews/my")
+    public Result<List<Review>> myReviews(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        return Result.success(reviewService.getUserReviews(loginUser.getUserId()));
+    }
+
+    /**
+     * 商家评分摘要（好评率）
+     */
+    @GetMapping("/reviews/merchant-summary")
+    public Result<MerchantRatingSummaryDTO> merchantSummary(@RequestParam Long merchantId) {
+        return Result.success(reviewService.getMerchantSummary(merchantId));
+    }
+
+    /**
+     * 商家最近评价（用于商品页展示）
+     */
+    @GetMapping("/reviews/merchant-latest")
+    public Result<List<Review>> merchantLatest(@RequestParam Long merchantId,
+                                               @RequestParam(defaultValue = "5") Integer limit) {
+        return Result.success(reviewService.getLatestMerchantReviews(merchantId, limit));
     }
 }

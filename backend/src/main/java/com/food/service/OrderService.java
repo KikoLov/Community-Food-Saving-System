@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.food.dto.OrderCreateDTO;
 import com.food.entity.*;
 import com.food.mapper.*;
+import com.food.util.DemoTextNormalizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +49,26 @@ public class OrderService {
             throw new RuntimeException("商品已过期");
         }
 
+        BigDecimal totalAmount = product.getDiscountPrice().multiply(new BigDecimal(orderDTO.getQuantity()));
+        UserProfile userProfile = userProfileMapper.selectOne(
+                new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
+        );
+        if (userProfile == null) {
+            userProfile = new UserProfile();
+            userProfile.setUserId(userId);
+            userProfile.setCarbonPoints(BigDecimal.ZERO);
+            userProfile.setTotalCarbonSaved(BigDecimal.ZERO);
+            userProfile.setTotalFoodSaved(BigDecimal.ZERO);
+            userProfile.setWalletBalance(new BigDecimal("200.00"));
+            userProfileMapper.insert(userProfile);
+        } else if (userProfile.getWalletBalance() == null) {
+            userProfile.setWalletBalance(new BigDecimal("200.00"));
+            userProfileMapper.updateById(userProfile);
+        }
+        if (userProfile.getWalletBalance().compareTo(totalAmount) < 0) {
+            throw new RuntimeException("余额不足，当前余额: " + userProfile.getWalletBalance());
+        }
+
         // 扣减库存
         boolean success = productService.decreaseStock(product.getProductId(), orderDTO.getQuantity());
         if (!success) {
@@ -55,16 +76,21 @@ public class OrderService {
         }
 
         try {
+            // 扣减用户钱包余额
+            userProfile.setWalletBalance(userProfile.getWalletBalance().subtract(totalAmount));
+            userProfile.setUpdateTime(LocalDateTime.now());
+            userProfileMapper.updateById(userProfile);
+
             // 创建订单
             Order order = new Order();
             order.setOrderNo(generateOrderNo());
             order.setUserId(userId);
             order.setMerchantId(product.getMerchantId());
             order.setProductId(product.getProductId());
-            order.setProductName(product.getProductName());
+            order.setProductName(DemoTextNormalizeUtil.normalizeProductName(product.getProductName()));
             order.setProductImage(product.getProductImage());
             order.setQuantity(orderDTO.getQuantity());
-            order.setTotalAmount(product.getDiscountPrice().multiply(new BigDecimal(orderDTO.getQuantity())));
+            order.setTotalAmount(totalAmount);
             order.setVerifyCode(generateVerifyCode());
             order.setOrderStatus(0); // 待核销
             order.setCreateTime(LocalDateTime.now());
@@ -270,8 +296,8 @@ public class OrderService {
                     ? product.getProductName()
                     : order.getProductName();
             String desc = product != null ? product.getDescription() : null;
+            // 仅用于返回给前端展示，避免把超长 DataURI 写入数据库导致截断报错
             order.setProductImage(buildAiLikePlaceholder(name, desc));
-            changed = true;
         }
         if (changed) {
             Order patch = new Order();
@@ -281,7 +307,7 @@ public class OrderService {
             patch.setUpdateTime(LocalDateTime.now());
             orderMapper.updateById(patch);
         }
-        return order;
+        return DemoTextNormalizeUtil.normalizeOrder(order);
     }
 
     /**

@@ -158,6 +158,7 @@
 <script setup>
 import { computed, ref, onMounted } from 'vue'
 import { getWarningProducts, getMerchantStats } from '@/api/merchant'
+import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
 
 const warningProducts = ref([])
 const stats = ref({})
@@ -204,7 +205,7 @@ const verifyAreaPath = computed(() => (verifyLinePath.value ? `${verifyLinePath.
 onMounted(async () => {
   try {
     const warningRes = await getWarningProducts()
-    warningProducts.value = warningRes.data || []
+    warningProducts.value = (warningRes.data || []).map(normalizeProductRecord)
 
     const statsRes = await getMerchantStats()
     stats.value = statsRes.data || {}

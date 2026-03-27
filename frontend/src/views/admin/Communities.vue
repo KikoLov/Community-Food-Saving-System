@@ -119,6 +119,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getCommunitiesAdmin, addCommunity, updateCommunity, deleteCommunity as deleteCommunityApi } from '@/api/admin'
 import { Message } from '@/utils/message'
+import { fixCommunityName } from '@/utils/textFixer'
 
 const communities = ref([])
 const loading = ref(false)
@@ -144,7 +145,10 @@ const loadCommunities = async () => {
   loading.value = true
   try {
     const res = await getCommunitiesAdmin()
-    communities.value = res.data || []
+    communities.value = (res.data || []).map((item) => ({
+      ...item,
+      communityName: fixCommunityName(item.communityId, item.communityName)
+    }))
   } catch (error) {
     Message.error('加载社区列表失败')
     console.error(error)

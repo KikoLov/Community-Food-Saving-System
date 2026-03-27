@@ -21,7 +21,6 @@
             @mouseout="$event.currentTarget.style.transform = 'translateY(0)'"
           >
             <h3>{{ community.communityName }}</h3>
-            <p class="text-muted">{{ community.address }}</p>
           </div>
         </div>
       </div>
@@ -44,6 +43,9 @@
             <div class="card merchant-card">
               <h4>{{ merchant.merchantName }}</h4>
               <p class="text-muted">在售商品：{{ merchant.productCount }} 件</p>
+              <p v-if="merchantRatingMap[merchant.merchantId]" class="text-muted">
+                好评率：{{ merchantRatingMap[merchant.merchantId].goodRate }}%（{{ merchantRatingMap[merchant.merchantId].totalReviews }}条）
+              </p>
             </div>
           </div>
         </div>
@@ -112,13 +114,11 @@
               <div class="card">
                 <div style="text-align: center; padding: 20px 0; background: #f8f9fa; border-radius: 8px 8px 0 0;">
                   <img
-                    v-if="product.productImage"
-                    :src="resolveImageSrc(product.productImage)"
+                    :src="resolveProductImageSrc(product, { size: 88 })"
                     @error="handleImgError"
                     style="width: 88px; height: 88px; object-fit: cover; border-radius: 10px;"
                     alt="商品图"
                   >
-                  <div v-else style="font-size: 3em;">📦</div>
                 </div>
                 <div style="padding: 15px;">
                   <h3 style="font-size: 1.1em; margin-bottom: 10px;">{{ product.productName }}</h3>
@@ -160,8 +160,11 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getCommunities, getProducts, addToCart as addToCartApi } from '@/api/consumer'
+import { getCommunities, getProducts, addToCart as addToCartApi, getMerchantRatingSummary } from '@/api/consumer'
 import { Message } from '@/utils/message'
+import { fixCommunityName, isLikelyGarbled } from '@/utils/textFixer'
+import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
+import { normalizeProductRecord, normalizeCategoryName } from '@/utils/demoTextNormalizer'
 
 const selectedCommunity = ref(null)
 const communities = ref([])
@@ -171,6 +174,7 @@ const selectedCategory = ref(null)
 const keyword = ref('')
 const sortType = ref('expire_asc')
 const loading = ref(false)
+const merchantRatingMap = ref({})
 
 const processedProducts = computed(() => {
   let list = [...products.value]
@@ -232,7 +236,10 @@ const loadCommunities = async () => {
   loading.value = true
   try {
     const res = await getCommunities()
-    communities.value = res.data || []
+    communities.value = (res.data || []).map((item) => ({
+      ...item,
+      communityName: fixCommunityName(item.communityId, item.communityName)
+    }))
   } catch (error) {
     Message.error('加载社区列表失败')
   } finally {
@@ -244,7 +251,47 @@ const loadProducts = async () => {
   loading.value = true
   try {
     const res = await getProducts(selectedCommunity.value?.communityId)
-    products.value = res.data || []
+    const rawList = res.data || []
+    const fallbackByMerchant = {
+      7: ['绿城新鲜牛奶', '绿城全麦面包', '绿城苹果果切'],
+      8: ['阳光原味酸奶', '阳光蛋糕卷', '阳光鲜橙汁']
+    }
+    const enToZhProductName = {
+      'Greencity Milk': '绿城新鲜牛奶',
+      'Greencity Whole Wheat Bread': '绿城全麦面包',
+      'Greencity Apple Slices': '绿城苹果果切',
+      'SunGarden Yogurt': '阳光原味酸奶',
+      'SunGarden Cake Roll': '阳光蛋糕卷',
+      'SunGarden Orange Juice': '阳光鲜橙汁'
+    }
+    const enToZhMerchantName = {
+      'Greencity Demo Store': '绿城小区社区便利店',
+      'SunGarden Demo Store': '阳光花园社区便利店'
+    }
+    const counter = {}
+    products.value = rawList.map((p) => {
+      const next = normalizeProductRecord({ ...p })
+      if (enToZhMerchantName[next.merchantName]) {
+        next.merchantName = enToZhMerchantName[next.merchantName]
+      }
+      if (enToZhProductName[next.productName]) {
+        next.productName = enToZhProductName[next.productName]
+      }
+      if (isLikelyGarbled(next.merchantName)) {
+        next.merchantName = next.merchantId === 7 ? '绿城小区社区便利店' : next.merchantId === 8 ? '阳光花园社区便利店' : next.merchantName
+      }
+      if (isLikelyGarbled(next.productName)) {
+        counter[next.merchantId] = (counter[next.merchantId] || 0)
+        const idx = counter[next.merchantId]
+        counter[next.merchantId]++
+        const fallback = fallbackByMerchant[next.merchantId]?.[idx]
+        if (fallback) next.productName = fallback
+      }
+      if (isLikelyGarbled(next.description)) {
+        next.description = '演示商品'
+      }
+      return next
+    })
 
     // Extract unique categories
     const uniqueCategories = [...new Set(products.value.map(p => p.categoryId))]
@@ -252,9 +299,10 @@ const loadProducts = async () => {
       const product = products.value.find(p => p.categoryId === catId)
       return {
         categoryId: catId,
-        categoryName: product?.categoryName || '分类' + catId
+        categoryName: normalizeCategoryName(product?.categoryName) || '分类' + catId
       }
     })
+    await loadMerchantRatings()
   } catch (error) {
     Message.error('加载商品列表失败')
   } finally {
@@ -262,8 +310,25 @@ const loadProducts = async () => {
   }
 }
 
+const loadMerchantRatings = async () => {
+  const ids = [...new Set((products.value || []).map(p => p.merchantId).filter(Boolean))]
+  const next = {}
+  await Promise.all(ids.map(async (merchantId) => {
+    try {
+      const res = await getMerchantRatingSummary(merchantId)
+      next[merchantId] = res.data || { totalReviews: 0, goodRate: 0, avgRating: 0 }
+    } catch (e) {
+      next[merchantId] = { totalReviews: 0, goodRate: 0, avgRating: 0 }
+    }
+  }))
+  merchantRatingMap.value = next
+}
+
 const selectCommunity = (community) => {
-  selectedCommunity.value = community
+  selectedCommunity.value = {
+    ...community,
+    communityName: fixCommunityName(community.communityId, community.communityName)
+  }
   loadProducts()
 }
 
@@ -287,15 +352,8 @@ const handleAddToCart = async (product) => {
   }
 }
 
-const defaultThumb = 'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%2288%22 height=%2288%22%3E%3Crect width=%2288%22 height=%2288%22 rx=%2210%22 fill=%22%23eef5ef%22/%3E%3Ctext x=%2244%22 y=%2252%22 font-size=%2230%22 text-anchor=%22middle%22%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E'
-const resolveImageSrc = (raw) => {
-  if (!raw) return defaultThumb
-  if (raw.startsWith('data:image') || /^https?:\/\//.test(raw)) return raw
-  if (raw.startsWith('/uploads/')) return `${window.location.protocol}//${window.location.hostname}:8080${raw}`
-  return defaultThumb
-}
 const handleImgError = (e) => {
-  e.target.src = defaultThumb
+  e.target.src = buildNameBasedProductImage({}, 88)
 }
 
 const formatDate = (dateStr) => {

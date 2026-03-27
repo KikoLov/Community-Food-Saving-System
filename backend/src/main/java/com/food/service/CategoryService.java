@@ -3,6 +3,7 @@ package com.food.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.food.entity.Category;
 import com.food.mapper.CategoryMapper;
+import com.food.util.DemoTextNormalizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,14 +25,16 @@ public class CategoryService {
     public List<Category> getAllCategories() {
         LambdaQueryWrapper<Category> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Category::getStatus, 1).orderByAsc(Category::getSortOrder);
-        return categoryMapper.selectList(wrapper);
+        List<Category> list = categoryMapper.selectList(wrapper);
+        list.forEach(DemoTextNormalizeUtil::normalizeCategory);
+        return list;
     }
 
     /**
      * 根据ID获取分类
      */
     public Category getCategoryById(Long categoryId) {
-        return categoryMapper.selectById(categoryId);
+        return DemoTextNormalizeUtil.normalizeCategory(categoryMapper.selectById(categoryId));
     }
 
     /**

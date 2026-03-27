@@ -1,6 +1,7 @@
 package com.food.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -38,25 +39,30 @@ public class Cart extends BaseEntity {
     /**
      * 冗余字段：商品名称
      */
+    @TableField(exist = false)
     private String productName;
 
     /**
      * 冗余字段：商品图片
      */
+    @TableField(exist = false)
     private String productImage;
 
     /**
      * 冗余字段：折扣价
      */
+    @TableField(exist = false)
     private java.math.BigDecimal discountPrice;
 
     /**
      * 冗余字段：过期时间
      */
+    @TableField(exist = false)
     private java.time.LocalDateTime expireDatetime;
 
     /**
      * 冗余字段：库存
      */
+    @TableField(exist = false)
     private Integer stock;
 }

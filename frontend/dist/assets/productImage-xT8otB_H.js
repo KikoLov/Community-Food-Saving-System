@@ -1,0 +1,12 @@
+function x(n){const t=String(n||"").toLowerCase();return/牛奶|酸奶|奶|milk|yogurt|dairy/.test(t)?{icon:"🥛",bg1:"#e8f3ff",bg2:"#cfe6ff",label:"乳品"}:/面包|烘焙|蛋糕|bread|cake|bakery/.test(t)?{icon:"🥖",bg1:"#fff1df",bg2:"#ffe0bb",label:"烘焙"}:/果|橙|苹果|fruit|orange|apple|juice/.test(t)?{icon:"🍊",bg1:"#fff3dc",bg2:"#ffd99c",label:"水果"}:/肉|鸡|牛|meat|beef|chicken/.test(t)?{icon:"🥩",bg1:"#ffe5e5",bg2:"#ffc8c8",label:"肉类"}:/蔬|菜|vegetable/.test(t)?{icon:"🥬",bg1:"#e3f8e7",bg2:"#c5efcf",label:"蔬菜"}:/饮|水|茶|drink|water|tea/.test(t)?{icon:"🧃",bg1:"#e9f6ff",bg2:"#cdeaff",label:"饮品"}:{icon:"🥗",bg1:"#d9f6df",bg2:"#b5ebc2",label:"社区鲜食"}}function m(n){const t=String(n||"");let a=2166136261;for(let e=0;e<t.length;e++)a^=t.charCodeAt(e),a=Math.imul(a,16777619);return a>>>0}function h(n,t,a){const e=(1-Math.abs(2*a-1))*t,o=n/60,s=e*(1-Math.abs(o%2-1));let r=0,f=0,i=0;o>=0&&o<1?[r,f,i]=[e,s,0]:o<2?[r,f,i]=[s,e,0]:o<3?[r,f,i]=[0,e,s]:o<4?[r,f,i]=[0,s,e]:o<5?[r,f,i]=[s,0,e]:[r,f,i]=[e,0,s];const b=a-e/2,l=c=>Math.round((c+b)*255).toString(16).padStart(2,"0");return`#${l(r)}${l(f)}${l(i)}`}function M(n){const a=m(n)%360,e=(a+26)%360;return{bg1:h(a,.55,.92),bg2:h(e,.62,.8)}}function w(n,t=88){const a=`${(n==null?void 0:n.productName)||""} ${(n==null?void 0:n.description)||""}`,e=x(a),o=M((n==null?void 0:n.productName)||a),s=o.bg1,r=o.bg2,f=Math.round(t*.14),i=Math.round(t*.32),b=Math.max(10,Math.round(t*.12)),l=Math.round(t*.7),c=Math.round(t*.18),g=Math.round(t*.78),d=Math.round((t-g)/2),u=l+Math.round(c*.74),$=`<svg xmlns="http://www.w3.org/2000/svg" width="${t}" height="${t}">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${s}"/>
+        <stop offset="100%" stop-color="${r}"/>
+      </linearGradient>
+    </defs>
+    <rect width="${t}" height="${t}" rx="${f}" fill="url(#g)"/>
+    <text x="${t/2}" y="${Math.round(t*.46)}" text-anchor="middle" dominant-baseline="middle" font-size="${i}">${e.icon}</text>
+    <rect x="${d}" y="${l}" width="${g}" height="${c}" rx="${Math.round(c/2)}" fill="rgba(255,255,255,0.72)"/>
+    <text x="${t/2}" y="${u}" text-anchor="middle" font-size="${b}" fill="#2f4f3a">${e.label}</text>
+  </svg>`;return`data:image/svg+xml;utf8,${encodeURIComponent($)}`}function y(n,t={}){const a=t.size||88,e=n==null?void 0:n.productImage,o=w(n,a);return e?e.startsWith("data:image")||/^https?:\/\//.test(e)?e:e.startsWith("/uploads/")?`${window.location.protocol}//${window.location.hostname}:8080${e}`:o:o}export{w as b,y as r};

@@ -1,10 +1,10 @@
 <template>
   <div class="dashboard-page">
     <h4 class="mb-1"><i class="fas fa-chart-line me-2"></i>管理员经营看板</h4>
-    <p class="text-muted mb-4">欢迎回来，{{ userName }}。这里展示平台运营关键指标。</p>
+    <p class="text-muted mb-2">欢迎回来，{{ userName }}。这里展示平台运营关键指标。</p>
 
-    <div class="row g-3 mb-3">
-      <div class="col-md-3" v-for="item in statCards" :key="item.label">
+    <div class="row g-3 mb-3 stat-row">
+      <div class="col-12 col-sm-6 col-xl-3" v-for="item in statCards" :key="item.label">
         <div class="stat-card" :class="item.tone">
           <div class="stat-top">
             <div class="stat-label">{{ item.label }}</div>
@@ -17,7 +17,7 @@
       </div>
     </div>
 
-    <div class="row g-3 mb-4">
+    <div class="row g-3 mb-3">
       <div class="col-md-6">
         <div class="panel-card h-100">
           <div class="panel-title">异常订单占比</div>
@@ -39,7 +39,7 @@
       </div>
     </div>
 
-    <div class="panel-card mb-4">
+    <div class="panel-card mb-3">
       <div class="d-flex justify-content-between align-items-center mb-2">
         <div class="panel-title mb-0">近 7 天平台订单趋势</div>
         <small class="text-muted">绿色=订单数，橙色=核销数</small>
@@ -222,8 +222,12 @@ onUnmounted(() => {
 
 <style scoped>
 .dashboard-page {
-  padding: 20px 0;
+  padding: 10px 0 6px;
   position: relative;
+}
+
+.stat-row > [class*='col-'] {
+  display: flex;
 }
 
 .dashboard-page::before {
@@ -241,12 +245,17 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(6px);
   border-radius: 16px;
-  padding: 14px 14px 12px;
+  padding: 12px 14px 10px;
   box-shadow:
     0 10px 24px rgba(24, 86, 45, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.65);
   position: relative;
   overflow: hidden;
+  min-height: 98px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
 }
 .shine-layer {
   content: '';
@@ -255,29 +264,45 @@ onUnmounted(() => {
   background: linear-gradient(130deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 44%);
   pointer-events: none;
 }
-.stat-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.stat-label { color: #607566; font-size: 0.88rem; }
-.stat-value { color: #204c2c; font-size: 2rem; font-weight: 800; margin-top: 2px; letter-spacing: 0.2px; }
+.stat-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.stat-label {
+  color: #607566;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding-right: 6px;
+}
+.stat-value {
+  color: #204c2c;
+  font-size: clamp(1.45rem, 1.7vw, 1.8rem);
+  line-height: 1.1;
+  font-weight: 800;
+  margin-top: 4px;
+  padding-right: 58px;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
 .stat-icon {
-  min-width: 36px;
+  min-width: 40px;
   height: 24px;
   border-radius: 999px;
-  padding: 0 8px;
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
   background: rgba(76, 175, 80, 0.14);
   color: #2f6f3c;
 }
 .stat-art {
   position: absolute;
-  right: 10px;
-  bottom: 8px;
-  font-size: 2.7rem;
-  opacity: 0.78;
+  right: 9px;
+  bottom: 4px;
+  font-size: clamp(1.9rem, 2.2vw, 2.5rem);
+  line-height: 1;
+  opacity: 0.54;
   filter: saturate(1.08);
+  pointer-events: none;
 }
 .stat-card.tone-money { border-color: #f7d9c6; background: linear-gradient(180deg, #fffdf8, #fff); }
 .stat-card.tone-money .stat-icon { background: rgba(251, 140, 0, 0.18); color: #b45309; }
@@ -290,13 +315,13 @@ onUnmounted(() => {
 .panel-card {
   background: rgba(255, 255, 255, 0.76);
   border: 1px solid rgba(208, 226, 211, 0.8);
-  border-radius: 16px;
-  padding: 14px 16px;
+  border-radius: 14px;
+  padding: 10px 12px;
   box-shadow:
     0 10px 22px rgba(20, 84, 43, 0.06),
     inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
-.panel-title { color: #2d6238; font-weight: 700; margin-bottom: 8px; }
+.panel-title { color: #2d6238; font-weight: 700; margin-bottom: 6px; font-size: 0.98rem; }
 .ratio-value { font-size: 1.7rem; font-weight: 700; color: #d84315; }
 .ratio-progress { height: 10px; border-radius: 999px; }
 .ratio-progress-bar {
@@ -313,8 +338,8 @@ onUnmounted(() => {
 
 .ratio-ring {
   --p: 0;
-  width: 118px;
-  height: 118px;
+  width: 94px;
+  height: 94px;
   border-radius: 50%;
   background:
     radial-gradient(farthest-side, #fff 77%, transparent 78%),
@@ -325,7 +350,7 @@ onUnmounted(() => {
 }
 
 .ratio-ring span {
-  font-size: 1.9rem;
+  font-size: 1.45rem;
   font-weight: 800;
   color: #0e4f2f;
 }
@@ -333,21 +358,30 @@ onUnmounted(() => {
 .wave-chart-wrap {
   border: 1px solid rgba(167, 198, 173, 0.5);
   border-radius: 14px;
-  padding: 8px 10px 10px;
+  padding: 6px 8px 8px;
   background: linear-gradient(180deg, rgba(255,255,255,0.56), rgba(241, 249, 241, 0.4));
 }
 
 .wave-chart {
   width: 100%;
-  height: 180px;
+  height: 138px;
 }
 
 .wave-axis {
-  margin-top: -2px;
+  margin-top: -4px;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   color: #557464;
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   text-align: center;
+}
+
+@media (max-width: 1200px) {
+  .stat-card {
+    min-height: 94px;
+  }
+  .stat-value {
+    padding-right: 54px;
+  }
 }
 </style>

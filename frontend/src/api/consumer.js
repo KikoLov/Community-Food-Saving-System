@@ -51,6 +51,15 @@ export function deleteCart(cartId) {
   })
 }
 
+// Checkout cart items
+export function checkoutCart(cartIds = []) {
+  return request({
+    url: '/consumer/cart/checkout',
+    method: 'post',
+    data: { cartIds }
+  })
+}
+
 // Create order
 export function createOrder(data, idempotencyKey = null) {
   const headers = idempotencyKey ? { 'X-Idempotency-Key': idempotencyKey } : undefined
@@ -108,5 +117,52 @@ export function getCommunities() {
   return request({
     url: '/consumer/communities',
     method: 'get'
+  })
+}
+
+// Upload review image
+export function uploadReviewImage(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request({
+    url: '/consumer/reviews/upload-image',
+    method: 'post',
+    data: formData,
+    headers: { 'Content-Type': 'multipart/form-data' }
+  })
+}
+
+// Create review
+export function createReview(data) {
+  return request({
+    url: '/consumer/reviews',
+    method: 'post',
+    data
+  })
+}
+
+// My reviews
+export function getMyReviews() {
+  return request({
+    url: '/consumer/reviews/my',
+    method: 'get'
+  })
+}
+
+// Merchant rating summary
+export function getMerchantRatingSummary(merchantId) {
+  return request({
+    url: '/consumer/reviews/merchant-summary',
+    method: 'get',
+    params: { merchantId }
+  })
+}
+
+// Latest reviews for a merchant
+export function getMerchantLatestReviews(merchantId, limit = 5) {
+  return request({
+    url: '/consumer/reviews/merchant-latest',
+    method: 'get',
+    params: { merchantId, limit }
   })
 }

@@ -172,3 +172,20 @@ export function getCategories() {
     method: 'get'
   })
 }
+
+// Get merchant reviews
+export function getMerchantReviews() {
+  return request({
+    url: '/merchant/reviews',
+    method: 'get'
+  })
+}
+
+// Reply review
+export function replyMerchantReview(reviewId, replyContent) {
+  return request({
+    url: `/merchant/reviews/${reviewId}/reply`,
+    method: 'post',
+    data: { replyContent }
+  })
+}

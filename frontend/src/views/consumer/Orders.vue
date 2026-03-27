@@ -79,6 +79,14 @@
                     详情
                   </button>
                   <button
+                    v-if="row.orderStatus === 1 && !reviewedOrderIds.has(row.orderId)"
+                    class="btn btn-outline-success btn-sm me-2"
+                    @click="openReviewModal(row)"
+                  >
+                    评价
+                  </button>
+                  <span v-if="row.orderStatus === 1 && reviewedOrderIds.has(row.orderId)" class="text-success small me-2">已评价</span>
+                  <button
                     v-if="row.orderStatus === 0"
                     class="btn btn-outline-danger btn-sm"
                     @click="handleCancel(row.orderId)"
@@ -134,7 +142,7 @@
           <div><span class="k">核销时间</span><span class="v">{{ formatDateTime(detailOrder.verifyTime) || '-' }}</span></div>
         </div>
         <div class="thumb-wrap">
-          <img :src="resolveImageSrc(detailOrder.productImage)" class="thumb" alt="商品图" @error="handleImgError">
+          <img :src="resolveProductImageSrc(detailOrder, { size: 220 })" class="thumb" alt="商品图" @error="handleImgError">
         </div>
         <div class="timeline-wrap">
           <div class="timeline-title">状态时间线</div>
@@ -148,13 +156,60 @@
         </div>
       </div>
     </div>
+
+    <div v-if="reviewModalVisible" class="detail-mask" @click.self="reviewModalVisible = false">
+      <div class="detail-card">
+        <div class="detail-head">
+          <h5 class="mb-0">提交评价</h5>
+          <button class="btn btn-sm btn-light" @click="reviewModalVisible = false">关闭</button>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">评分</label>
+          <div class="star-rating" role="radiogroup" aria-label="评分">
+            <button
+              v-for="star in 5"
+              :key="star"
+              type="button"
+              class="star-btn"
+              :class="{ active: star <= displayRating }"
+              :aria-label="`${star}星`"
+              @mouseenter="hoverRating = star"
+              @mouseleave="hoverRating = 0"
+              @click="reviewForm.rating = star"
+            >
+              ★
+            </button>
+            <span class="star-text">{{ reviewForm.rating }} 星</span>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">评价内容</label>
+          <textarea v-model.trim="reviewForm.content" class="form-control" rows="3" placeholder="说说商品质量和服务体验"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">评价图片（可选）</label>
+          <input type="file" class="form-control" accept="image/*" @change="handleReviewImage">
+          <div v-if="reviewForm.imageUrl" class="mt-2">
+            <img :src="reviewForm.imageUrl" class="thumb" alt="评价图片">
+          </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2">
+          <button class="btn btn-secondary" @click="reviewModalVisible = false">取消</button>
+          <button class="btn btn-primary" :disabled="reviewLoading" @click="submitReview">
+            {{ reviewLoading ? '提交中...' : '提交评价' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { getMyOrders, cancelOrder } from '@/api/consumer'
+import { getMyOrders, cancelOrder, createReview, getMyReviews, uploadReviewImage } from '@/api/consumer'
 import { Message } from '@/utils/message'
+import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
+import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
 
 const activeTab = ref('all')
 const orders = ref([])
@@ -162,7 +217,16 @@ const keyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const detailOrder = ref(null)
-const defaultThumb = 'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22220%22 height=%22120%22%3E%3Crect width=%22220%22 height=%22120%22 rx=%2212%22 fill=%22%23eef5ef%22/%3E%3Ctext x=%22110%22 y=%2268%22 font-size=%2232%22 text-anchor=%22middle%22%3E%F0%9F%93%A6%3C/text%3E%3C/svg%3E'
+const reviewedOrderIds = ref(new Set())
+const reviewModalVisible = ref(false)
+const reviewLoading = ref(false)
+const hoverRating = ref(0)
+const reviewForm = ref({
+  orderId: null,
+  rating: 5,
+  content: '',
+  imageUrl: ''
+})
 
 const filteredOrders = computed(() => {
   let data = orders.value
@@ -196,14 +260,25 @@ watch(totalPages, (val) => {
 
 onMounted(async () => {
   await loadOrders()
+  await loadMyReviews()
 })
 
 const loadOrders = async () => {
   try {
     const res = await getMyOrders()
-    orders.value = res.data
+    orders.value = (res.data || []).map(normalizeProductRecord)
   } catch (error) {
     console.error(error)
+  }
+}
+
+const loadMyReviews = async () => {
+  try {
+    const res = await getMyReviews()
+    const ids = new Set((res.data || []).map(r => r.orderId))
+    reviewedOrderIds.value = ids
+  } catch (e) {
+    reviewedOrderIds.value = new Set()
   }
 }
 
@@ -262,17 +337,8 @@ const printDetail = () => {
   w.print()
 }
 
-const resolveImageSrc = (raw) => {
-  if (!raw) return defaultThumb
-  if (raw.startsWith('data:image') || /^https?:\/\//.test(raw)) return raw
-  if (raw.startsWith('/uploads/')) {
-    return `${window.location.protocol}//${window.location.hostname}:8080${raw}`
-  }
-  return defaultThumb
-}
-
 const handleImgError = (e) => {
-  e.target.src = defaultThumb
+  e.target.src = buildNameBasedProductImage({}, 220)
 }
 
 const getTimelineSteps = (order) => {
@@ -290,6 +356,8 @@ const detailTimeline = computed(() => {
   return detailOrder.value ? getTimelineSteps(detailOrder.value) : []
 })
 
+const displayRating = computed(() => hoverRating.value || reviewForm.value.rating || 0)
+
 const handleCancel = async (orderId) => {
   if (confirm('确定要取消该订单吗?')) {
     try {
@@ -299,6 +367,45 @@ const handleCancel = async (orderId) => {
     } catch (error) {
       console.error(error)
     }
+  }
+}
+
+const openReviewModal = (row) => {
+  reviewForm.value = {
+    orderId: row.orderId,
+    rating: 5,
+    content: '',
+    imageUrl: ''
+  }
+  hoverRating.value = 0
+  reviewModalVisible.value = true
+}
+
+const handleReviewImage = async (event) => {
+  const file = event.target.files?.[0]
+  if (!file) return
+  try {
+    const res = await uploadReviewImage(file)
+    reviewForm.value.imageUrl = res.data || ''
+    Message.success('评价图片上传成功')
+  } catch (e) {
+    Message.error('评价图片上传失败')
+  } finally {
+    event.target.value = ''
+  }
+}
+
+const submitReview = async () => {
+  reviewLoading.value = true
+  try {
+    await createReview(reviewForm.value)
+    Message.success('评价成功，感谢反馈')
+    reviewModalVisible.value = false
+    await loadMyReviews()
+  } catch (e) {
+    Message.error(e?.message || '评价提交失败')
+  } finally {
+    reviewLoading.value = false
   }
 }
 
@@ -559,5 +666,44 @@ const exportCsv = () => {
 .timeline-item .text.active {
   color: #1f2937;
   font-weight: 600;
+}
+
+.star-rating {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.star-btn {
+  border: none;
+  background: transparent;
+  color: #d1d5db;
+  font-size: 1.9rem;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.16s ease, color 0.16s ease, text-shadow 0.2s ease;
+}
+
+.star-btn:hover {
+  transform: translateY(-2px) scale(1.06);
+}
+
+.star-btn.active {
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.55);
+  animation: star-pop 0.2s ease;
+}
+
+.star-text {
+  margin-left: 8px;
+  color: #4b5563;
+  font-size: 0.92rem;
+}
+
+@keyframes star-pop {
+  0% { transform: scale(0.9); }
+  70% { transform: scale(1.12); }
+  100% { transform: scale(1); }
 }
 </style>
