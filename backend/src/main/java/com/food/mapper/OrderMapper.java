@@ -6,6 +6,7 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -86,4 +87,46 @@ public interface OrderMapper extends BaseMapper<Order> {
         LIMIT 1
         """)
     Order selectOrderByIdAndUser(@Param("orderId") Long orderId, @Param("userId") Long userId);
+
+    @Select("""
+            SELECT COALESCE(SUM(total_amount), 0) FROM biz_order
+            WHERE merchant_id = #{merchantId} AND deleted = 0
+              AND DATE(create_time) = CURDATE()
+            """)
+    BigDecimal sumTodaySalesByMerchant(@Param("merchantId") Long merchantId);
+
+    @Select("""
+            SELECT COUNT(*) FROM biz_order
+            WHERE merchant_id = #{merchantId} AND deleted = 0
+              AND DATE(create_time) = CURDATE()
+            """)
+    Long countTodayOrdersByMerchant(@Param("merchantId") Long merchantId);
+
+    @Select("""
+            SELECT COALESCE(SUM(total_amount), 0) FROM biz_order
+            WHERE merchant_id = #{merchantId} AND deleted = 0
+              AND YEAR(create_time) = YEAR(CURDATE())
+              AND MONTH(create_time) = MONTH(CURDATE())
+            """)
+    BigDecimal sumMonthSalesByMerchant(@Param("merchantId") Long merchantId);
+
+    @Select("""
+            SELECT COUNT(*) FROM biz_order
+            WHERE merchant_id = #{merchantId} AND deleted = 0
+              AND YEAR(create_time) = YEAR(CURDATE())
+              AND MONTH(create_time) = MONTH(CURDATE())
+            """)
+    Long countMonthOrdersByMerchant(@Param("merchantId") Long merchantId);
+
+    @Select("""
+            SELECT COUNT(*) FROM biz_order
+            WHERE merchant_id = #{merchantId} AND deleted = 0 AND order_status = 0
+            """)
+    Long countPendingByMerchant(@Param("merchantId") Long merchantId);
+
+    @Select("""
+            SELECT COUNT(*) FROM biz_order
+            WHERE merchant_id = #{merchantId} AND deleted = 0 AND order_status = 1
+            """)
+    Long countVerifiedByMerchant(@Param("merchantId") Long merchantId);
 }

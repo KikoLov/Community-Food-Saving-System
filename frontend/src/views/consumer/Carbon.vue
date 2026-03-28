@@ -1,6 +1,11 @@
 <template>
   <div class="carbon-page">
-    <h4 class="mb-4"><i class="fas fa-leaf me-2"></i>低碳中心</h4>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+      <h4 class="mb-0"><i class="fas fa-leaf me-2"></i>低碳中心</h4>
+      <router-link to="/consumer/gamification" class="btn btn-sm btn-outline-success">
+        <i class="fas fa-store me-1"></i>碳积分商城（兑换树 / 徽章 / 券）
+      </router-link>
+    </div>
 
     <div class="row g-4 mb-4">
       <div class="col-md-4">
@@ -10,7 +15,7 @@
               <i class="fas fa-coins fa-2x text-warning"></i>
             </div>
             <div>
-              <p class="text-muted mb-1">低碳积分</p>
+              <p class="text-muted mb-1">碳积分 <small class="text-muted">(Carbon Coins)</small></p>
               <h3 class="mb-0">{{ profile?.carbonPoints || 0 }}</h3>
             </div>
           </div>
@@ -100,8 +105,8 @@
             <tbody>
               <tr v-for="log in logs" :key="log.logId">
                 <td>
-                  <span :class="['badge', log.logType === 1 ? 'bg-success' : 'bg-secondary']">
-                    {{ log.logType === 1 ? '获得' : '扣减' }}
+                  <span :class="['badge', log.logType === 1 ? 'bg-success' : 'bg-warning text-dark']">
+                    {{ logTypeLabel(log) }}
                   </span>
                 </td>
                 <td>
@@ -205,6 +210,12 @@ const formatDateTime = (datetime) => {
   if (!datetime) return ''
   const date = new Date(datetime)
   return date.toLocaleString('zh-CN')
+}
+
+const logTypeLabel = (log) => {
+  if (log.logType === 1) return '获得'
+  if (log.description && String(log.description).includes('兑换')) return '兑换'
+  return '扣减'
 }
 
 const shortDate = (dateStr) => {

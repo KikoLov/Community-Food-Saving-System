@@ -49,6 +49,11 @@ const routes = [
         component: () => import('@/views/consumer/Carbon.vue')
       },
       {
+        path: 'gamification',
+        name: 'ConsumerGamification',
+        component: () => import('@/views/consumer/Gamification.vue')
+      },
+      {
         path: 'profile',
         name: 'ConsumerProfile',
         component: () => import('@/views/consumer/Profile.vue')

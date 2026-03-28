@@ -185,11 +185,11 @@ const handleLogin = async () => {
 }
 
 .login-card {
-  width: min(520px, 92vw);
+  width: min(700px, 95vw);
   background: rgba(255, 255, 255, 0.68);
   border: 1px solid rgba(214, 229, 216, 0.9);
   border-radius: 22px;
-  padding: 42px 34px;
+  padding: 50px 40px;
   backdrop-filter: blur(14px);
   box-shadow:
     0 22px 60px rgba(18, 58, 37, 0.14),
@@ -230,7 +230,7 @@ const handleLogin = async () => {
 }
 .title {
   margin: 0;
-  font-size: 1.4rem;
+  font-size: 1.6rem;
   font-weight: 900;
   color: #2e7d32;
   line-height: 1.25;
@@ -251,7 +251,7 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 14px;
+  padding: 14px 16px;
   border-radius: 14px;
   border: 1px solid rgba(220, 231, 223, 1);
   background: rgba(250, 252, 250, 0.75);
@@ -277,7 +277,7 @@ const handleLogin = async () => {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 1rem;
+  font-size: 1.1rem;
   color: #27392e;
 }
 

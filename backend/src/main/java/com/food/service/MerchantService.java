@@ -1,10 +1,16 @@
 package com.food.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.food.dto.MerchantAdminStatsDTO;
 import com.food.entity.Merchant;
+import com.food.entity.Order;
 import com.food.entity.Product;
+import com.food.entity.User;
 import com.food.mapper.MerchantMapper;
+import com.food.mapper.OrderMapper;
 import com.food.mapper.ProductMapper;
+import com.food.mapper.UserMapper;
+import com.food.util.DemoTextNormalizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -37,6 +43,8 @@ public class MerchantService {
 
     private final MerchantMapper merchantMapper;
     private final ProductMapper productMapper;
+    private final OrderMapper orderMapper;
+    private final UserMapper userMapper;
 
     @Value("${file.upload.path:/uploads}")
     private String uploadPath;
@@ -308,5 +316,111 @@ public class MerchantService {
      */
     public Merchant getMerchantById(Long merchantId) {
         return merchantMapper.selectById(merchantId);
+    }
+
+    /**
+     * 管理端：商户经营统计 + 基本信息
+     */
+    public MerchantAdminStatsDTO getMerchantAdminStats(Long merchantId) {
+        Merchant m = merchantMapper.selectById(merchantId);
+        if (m == null) {
+            throw new RuntimeException("商户不存在");
+        }
+        DemoTextNormalizeUtil.normalizeMerchant(m);
+        BigDecimal todaySales = orderMapper.sumTodaySalesByMerchant(merchantId);
+        if (todaySales == null) {
+            todaySales = BigDecimal.ZERO;
+        }
+        Long todayCnt = orderMapper.countTodayOrdersByMerchant(merchantId);
+        BigDecimal monthSales = orderMapper.sumMonthSalesByMerchant(merchantId);
+        if (monthSales == null) {
+            monthSales = BigDecimal.ZERO;
+        }
+        Long monthCnt = orderMapper.countMonthOrdersByMerchant(merchantId);
+        Long pending = orderMapper.countPendingByMerchant(merchantId);
+        Long verified = orderMapper.countVerifiedByMerchant(merchantId);
+        long onSale = productMapper.selectCount(new LambdaQueryWrapper<Product>()
+                .eq(Product::getMerchantId, merchantId)
+                .eq(Product::getStatus, 1));
+        return new MerchantAdminStatsDTO(
+                m,
+                todaySales,
+                todayCnt != null ? todayCnt : 0L,
+                monthSales,
+                monthCnt != null ? monthCnt : 0L,
+                pending != null ? pending : 0L,
+                verified != null ? verified : 0L,
+                onSale
+        );
+    }
+
+    /**
+     * 管理端：删除商户。
+     * force=false：仅当无任何订单时删除（并删除该商户下商品）。
+     * force=true：级联逻辑删除该商户下订单、商品后再删除商户。
+     * 演示账号 merchant1/merchant2：仅当商户名称非乱码时禁止删除（便于清理同名用户下的重复乱码行）。
+     */
+    @Transactional
+    public void deleteMerchantForAdmin(Long merchantId, boolean force) {
+        Merchant m = merchantMapper.selectById(merchantId);
+        if (m == null) {
+            throw new RuntimeException("商户不存在");
+        }
+        User u = m.getUserId() != null ? userMapper.selectById(m.getUserId()) : null;
+        if (u != null && ("merchant1".equals(u.getUserName()) || "merchant2".equals(u.getUserName()))) {
+            if (!isGarbledMerchantName(m.getMerchantName())) {
+                throw new RuntimeException("演示账号 merchant1 / merchant2 对应商户不可删除");
+            }
+        }
+        if (force) {
+            orderMapper.delete(new LambdaQueryWrapper<Order>().eq(Order::getMerchantId, merchantId));
+            productMapper.delete(new LambdaQueryWrapper<Product>().eq(Product::getMerchantId, merchantId));
+            merchantMapper.deleteById(merchantId);
+            return;
+        }
+        long orderCnt = orderMapper.selectCount(new LambdaQueryWrapper<Order>()
+                .eq(Order::getMerchantId, merchantId));
+        if (orderCnt > 0) {
+            throw new RuntimeException("该商户已有订单记录，无法删除。请勾选强制删除或改用「删除（含订单）」");
+        }
+        productMapper.delete(new LambdaQueryWrapper<Product>().eq(Product::getMerchantId, merchantId));
+        merchantMapper.deleteById(merchantId);
+    }
+
+    /**
+     * 清理名称疑似乱码的商户（级联删除其订单与商品；merchant1/merchant2 下仅删乱码行，保留正常名称行）
+     */
+    @Transactional
+    public int pruneGarbledMerchantsWithoutOrders() {
+        List<Merchant> list = merchantMapper.selectList(null);
+        int removed = 0;
+        for (Merchant m : list) {
+            if (m == null || m.getUserId() == null) {
+                continue;
+            }
+            if (!isGarbledMerchantName(m.getMerchantName())) {
+                continue;
+            }
+            deleteMerchantForAdmin(m.getMerchantId(), true);
+            removed++;
+        }
+        return removed;
+    }
+
+    private static boolean isGarbledMerchantName(String name) {
+        if (name == null || name.isBlank()) {
+            return true;
+        }
+        if (name.contains("�") || name.contains("\uFFFD")) {
+            return true;
+        }
+        if (name.matches(".*[ÃÂÐ].*")) {
+            return true;
+        }
+        long qMarks = name.chars().filter(c -> c == '?' || c == '？').count();
+        if (qMarks >= 2) {
+            return true;
+        }
+        return name.matches("^\\?+$") || name.matches("^[？]+$");
     }
 }

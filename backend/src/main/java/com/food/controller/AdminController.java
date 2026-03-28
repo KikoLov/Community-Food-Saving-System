@@ -1,6 +1,7 @@
 package com.food.controller;
 
 import com.food.common.Result;
+import com.food.dto.MerchantAdminStatsDTO;
 import com.food.entity.Category;
 import com.food.entity.Community;
 import com.food.entity.Merchant;
@@ -8,6 +9,7 @@ import com.food.entity.OperationLog;
 import com.food.entity.Order;
 import com.food.security.LoginUser;
 import com.food.service.*;
+import com.food.util.DemoTextNormalizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -34,12 +36,28 @@ public class AdminController {
     private final JdbcTemplate jdbcTemplate;
 
     /**
-     * 获取所有商户列表
+     * 修复数据库编码问题（临时方法）
      */
-    @GetMapping("/merchants")
-    public Result<List<Merchant>> getMerchants() {
-        List<Merchant> merchants = merchantService.getAllMerchants();
-        return Result.success(merchants);
+    @PostMapping("/fix-encoding")
+    public Result<Void> fixEncoding() {
+        try {
+            // 设置数据库字符集
+            jdbcTemplate.execute("ALTER DATABASE food_saving CHARACTER SET utf8 COLLATE utf8_general_ci");
+
+            // 转换所有表字符集
+            String[] tables = {
+                "biz_merchant", "biz_product", "biz_order", "biz_user",
+                "biz_user_profile", "sys_category", "sys_community"
+            };
+
+            for (String table : tables) {
+                jdbcTemplate.execute("ALTER TABLE " + table + " CONVERT TO CHARACTER SET utf8 COLLATE utf8_general_ci");
+            }
+
+            return Result.success();
+        } catch (Exception e) {
+            return Result.error("修复编码失败: " + e.getMessage());
+        }
     }
 
     /**
@@ -58,6 +76,69 @@ public class AdminController {
                 "管理员审核商户，状态=" + status
         );
         return Result.success();
+    }
+
+    /**
+     * 获取全部商户列表（管理端）
+     */
+    @GetMapping("/merchants")
+    public Result<List<Merchant>> listMerchants() {
+        List<Merchant> list = merchantService.getAllMerchants();
+        if (list != null) {
+            for (Merchant m : list) {
+                DemoTextNormalizeUtil.normalizeMerchant(m);
+            }
+        }
+        return Result.success(list);
+    }
+
+    /**
+     * 商户经营统计（管理端详情）
+     */
+    @GetMapping("/merchants/{id}/stats")
+    public Result<MerchantAdminStatsDTO> merchantStats(@PathVariable("id") Long merchantId) {
+        return Result.success(merchantService.getMerchantAdminStats(merchantId));
+    }
+
+    /**
+     * 删除商户（无订单；非 merchant1/merchant2 演示主体）
+     */
+    @DeleteMapping("/merchants/{id}")
+    public Result<Void> deleteMerchantAdmin(Authentication authentication,
+                                           @PathVariable("id") Long merchantId,
+                                           @RequestParam(value = "force", defaultValue = "false") boolean force) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        merchantService.deleteMerchantForAdmin(merchantId, force);
+        operationLogService.logOperation(
+                loginUser,
+                "DELETE_MERCHANT",
+                "MERCHANT",
+                merchantId,
+                null,
+                "管理员删除商户" + (force ? "（含下属订单/商品）" : "")
+        );
+        return Result.success();
+    }
+
+    /**
+     * 一键清理：名称疑似乱码且无任何订单的商户（保留 merchant1/merchant2）
+     */
+    @PostMapping("/merchants/prune-garbled")
+    public Result<Map<String, Object>> pruneGarbledMerchants(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        int n = merchantService.pruneGarbledMerchantsWithoutOrders();
+        operationLogService.logOperation(
+                loginUser,
+                "PRUNE_MERCHANT",
+                "SYSTEM",
+                null,
+                null,
+                "清理乱码空商户，删除数量=" + n
+        );
+        return Result.success(Map.of(
+                "removed", n,
+                "message", "已清理 " + n + " 个无订单乱码商户"
+        ));
     }
 
     /**

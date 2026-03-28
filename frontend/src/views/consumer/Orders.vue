@@ -54,7 +54,7 @@
                 <th>金额</th>
                 <th>核销码</th>
                 <th>状态</th>
-                <th>碳减排</th>
+                <th>碳减排 / 碳积分</th>
                 <th>下单时间</th>
                 <th>操作</th>
               </tr>
@@ -72,7 +72,11 @@
                     {{ getStatusText(row.orderStatus) }}
                   </span>
                 </td>
-                <td><span class="text-success">{{ row.carbonSaved }} kg</span></td>
+                <td>
+                  <span class="text-success">{{ row.carbonSaved }} kg</span>
+                  <div class="small text-muted">≈ {{ carbonCoinsPreview(row) }} 碳积分</div>
+                  <div v-if="row.orderStatus === 0" class="small text-warning">核销后到账</div>
+                </td>
                 <td><small>{{ formatDateTime(row.createTime) }}</small></td>
                 <td>
                   <button class="btn btn-outline-primary btn-sm me-2" @click="openDetail(row)">
@@ -136,8 +140,14 @@
           <div><span class="k">状态</span><span class="v">{{ getStatusText(detailOrder.orderStatus) }}</span></div>
           <div><span class="k">商品</span><span class="v">{{ detailOrder.productName }} x{{ detailOrder.quantity }}</span></div>
           <div><span class="k">金额</span><span class="v text-danger">¥{{ detailOrder.totalAmount }}</span></div>
+          <div v-if="Number(detailOrder.discountAmount || 0) > 0" class="detail-discount">
+            <span class="k">优惠前</span><span class="v">¥{{ detailOrder.originalAmount }}</span>
+            <span class="k ms-3">优惠</span><span class="v text-success">-¥{{ detailOrder.discountAmount }}</span>
+            <span v-if="detailOrder.couponCode" class="k ms-3">券码</span>
+            <span v-if="detailOrder.couponCode" class="v font-monospace small">{{ detailOrder.couponCode }}</span>
+          </div>
           <div><span class="k">核销码</span><span class="v">{{ detailOrder.verifyCode }}</span></div>
-          <div><span class="k">碳减排</span><span class="v text-success">{{ detailOrder.carbonSaved }} kg</span></div>
+          <div><span class="k">碳减排</span><span class="v text-success">{{ detailOrder.carbonSaved }} kg（≈{{ carbonCoinsPreview(detailOrder) }} 碳积分）</span></div>
           <div><span class="k">下单时间</span><span class="v">{{ formatDateTime(detailOrder.createTime) }}</span></div>
           <div><span class="k">核销时间</span><span class="v">{{ formatDateTime(detailOrder.verifyTime) || '-' }}</span></div>
         </div>
@@ -298,6 +308,14 @@ const formatDateTime = (datetime) => {
   return date.toLocaleString('zh-CN')
 }
 
+/** 与后端一致：碳积分 = 碳减排(kg) × 10（核销时入账） */
+const carbonCoinsPreview = (row) => {
+  const kg = Number(row?.carbonSaved) || 0
+  const coins = kg * 10
+  if (Number.isInteger(coins)) return String(coins)
+  return coins.toFixed(2)
+}
+
 const openDetail = (row) => {
   detailOrder.value = row
 }
@@ -323,7 +341,8 @@ const printDetail = () => {
       <p>订单号：${o.orderNo || ''}</p>
       <p>状态：${getStatusText(o.orderStatus)}</p>
       <p>商品：${o.productName || ''} x${o.quantity || 0}</p>
-      <p>金额：¥${o.totalAmount || 0}</p>
+      ${Number(o.discountAmount || 0) > 0 ? `<p>优惠前：¥${o.originalAmount || 0}，优惠：-¥${o.discountAmount}，券码：${o.couponCode || '-'}</p>` : ''}
+      <p>实付：¥${o.totalAmount || 0}</p>
       <p>核销码：${o.verifyCode || ''}</p>
       <p>碳减排：${o.carbonSaved || 0} kg</p>
       <p>下单时间：${formatDateTime(o.createTime)}</p>

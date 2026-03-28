@@ -24,4 +24,9 @@ public class OrderCreateDTO {
     @NotNull(message = "数量不能为空")
     @Positive(message = "数量必须为正数")
     private Integer quantity;
+
+    /**
+     * 可选：碳积分商城兑换的优惠券码（下单自动抵扣）
+     */
+    private String couponCode;
 }

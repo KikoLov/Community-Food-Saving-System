@@ -3,10 +3,12 @@ package com.food.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.food.entity.Community;
 import com.food.mapper.CommunityMapper;
+import com.food.util.DemoTextNormalizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 社区服务
@@ -23,14 +25,16 @@ public class CommunityService {
     public List<Community> getAllCommunities() {
         LambdaQueryWrapper<Community> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Community::getStatus, 1).orderByAsc(Community::getCommunityName);
-        return communityMapper.selectList(wrapper);
+        return communityMapper.selectList(wrapper).stream()
+                .map(DemoTextNormalizeUtil::normalizeCommunity)
+                .collect(Collectors.toList());
     }
 
     /**
      * 根据ID获取社区
      */
     public Community getCommunityById(Long communityId) {
-        return communityMapper.selectById(communityId);
+        return DemoTextNormalizeUtil.normalizeCommunity(communityMapper.selectById(communityId));
     }
 
     /**
@@ -60,6 +64,8 @@ public class CommunityService {
      * 获取所有社区(管理端)
      */
     public List<Community> getAllCommunitiesForAdmin() {
-        return communityMapper.selectList(null);
+        return communityMapper.selectList(null).stream()
+                .map(DemoTextNormalizeUtil::normalizeCommunity)
+                .collect(Collectors.toList());
     }
 }

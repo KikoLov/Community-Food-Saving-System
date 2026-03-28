@@ -130,3 +130,6 @@ SET @copy_sql = IF(
 PREPARE stmt2 FROM @copy_sql;
 EXECUTE stmt2;
 DEALLOCATE PREPARE stmt2;
+
+-- 碳积分兑换 / 用户优惠券 / 订单优惠字段（完整脚本见 carbon-gamification.sql）
+-- SOURCE carbon-gamification.sql;

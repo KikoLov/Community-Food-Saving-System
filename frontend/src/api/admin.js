@@ -8,6 +8,23 @@ export function getMerchants() {
   })
 }
 
+// Merchant stats (today sales, orders, etc.)
+export function getMerchantStats(merchantId) {
+  return request({
+    url: `/admin/merchants/${merchantId}/stats`,
+    method: 'get'
+  })
+}
+
+// Delete merchant. force=true 时级联删除该商户下订单与商品（merchant1/merchant2 下仅名称正常的商户受保护）
+export function deleteMerchant(merchantId, force = false) {
+  return request({
+    url: `/admin/merchants/${merchantId}`,
+    method: 'delete',
+    params: force ? { force: true } : {}
+  })
+}
+
 // Audit merchant
 export function auditMerchant(merchantId, status) {
   return request({

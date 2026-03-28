@@ -1,6 +1,8 @@
 package com.food.util;
 
 import com.food.entity.Category;
+import com.food.entity.Community;
+import com.food.entity.Merchant;
 import com.food.entity.Order;
 import com.food.entity.Product;
 
@@ -49,6 +51,14 @@ public final class DemoTextNormalizeUtil {
         return MERCHANT_NAME_MAP.getOrDefault(name, name);
     }
 
+    public static Merchant normalizeMerchant(Merchant m) {
+        if (m == null) {
+            return null;
+        }
+        m.setMerchantName(normalizeMerchantName(m.getMerchantName()));
+        return m;
+    }
+
     public static String normalizeCategoryName(String name) {
         if (name == null) return null;
         return CATEGORY_NAME_MAP.getOrDefault(name, name);
@@ -73,6 +83,105 @@ public final class DemoTextNormalizeUtil {
         o.setProductName(normalizeProductName(o.getProductName()));
         o.setMerchantName(normalizeMerchantName(o.getMerchantName()));
         return o;
+    }
+
+    /**
+     * 演示社区省市区地址在部分环境下会写入乱码或问号，按编码/ID 回退为正确中文。
+     */
+    public static Community normalizeCommunity(Community c) {
+        if (c == null) {
+            return null;
+        }
+        String code = c.getCommunityCode();
+        if (code != null) {
+            String upper = code.trim();
+            if ("SG001".equalsIgnoreCase(upper)) {
+                applySunGardenCommunity(c);
+                return c;
+            }
+            if ("GC002".equalsIgnoreCase(upper)) {
+                applyGreencityCommunity(c);
+                return c;
+            }
+        }
+        Long id = c.getCommunityId();
+        if (id != null) {
+            switch (id.intValue()) {
+                case 1 -> {
+                    applySunGardenCommunity(c);
+                    return c;
+                }
+                case 2 -> {
+                    applyGreencityCommunity(c);
+                    return c;
+                }
+                case 3 -> {
+                    applyGreencityCommunity(c);
+                    return c;
+                }
+                case 4 -> {
+                    applySunGardenCommunity(c);
+                    return c;
+                }
+                default -> {
+                    // fall through
+                }
+            }
+        }
+        if (needsCommunityRegionFallback(c)) {
+            String name = c.getCommunityName();
+            if (name != null) {
+                if (name.contains("阳光") || name.contains("Sun") || name.contains("花园")) {
+                    applySunGardenCommunity(c);
+                    return c;
+                }
+                if (name.contains("绿城") || name.contains("Green")) {
+                    applyGreencityCommunity(c);
+                    return c;
+                }
+            }
+        }
+        return c;
+    }
+
+    private static boolean needsCommunityRegionFallback(Community c) {
+        return isGarbledOrMeaningless(c.getProvince())
+                || isGarbledOrMeaningless(c.getCity())
+                || isGarbledOrMeaningless(c.getDistrict())
+                || isGarbledOrMeaningless(c.getAddress());
+    }
+
+    private static boolean isGarbledOrMeaningless(String s) {
+        if (s == null || s.isBlank()) {
+            return true;
+        }
+        String t = s.trim();
+        if (t.contains("?") || t.contains("？")) {
+            return true;
+        }
+        if (t.contains("�")) {
+            return true;
+        }
+        if (t.matches("^\\d+$")) {
+            return true;
+        }
+        return false;
+    }
+
+    private static void applySunGardenCommunity(Community c) {
+        c.setCommunityName("阳光花园");
+        c.setProvince("北京市");
+        c.setCity("北京市");
+        c.setDistrict("朝阳区");
+        c.setAddress("朝阳区建国路88号");
+    }
+
+    private static void applyGreencityCommunity(Community c) {
+        c.setCommunityName("绿城小区");
+        c.setProvince("上海市");
+        c.setCity("上海市");
+        c.setDistrict("浦东新区");
+        c.setAddress("浦东新区世纪大道100号");
     }
 }
 

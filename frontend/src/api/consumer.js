@@ -51,12 +51,20 @@ export function deleteCart(cartId) {
   })
 }
 
-// Checkout cart items
-export function checkoutCart(cartIds = []) {
+// Checkout cart items；couponCode 可选，使用券时仅支持单条购物车
+export function checkoutCart(cartIds = [], couponCode = null) {
   return request({
     url: '/consumer/cart/checkout',
     method: 'post',
-    data: { cartIds }
+    data: { cartIds, couponCode: couponCode || undefined }
+  })
+}
+
+// 未使用的优惠券（碳积分兑换）
+export function getMyCoupons() {
+  return request({
+    url: '/consumer/coupons',
+    method: 'get'
   })
 }
 
@@ -100,6 +108,31 @@ export function getCarbonCenter() {
   return request({
     url: '/consumer/carbon',
     method: 'get'
+  })
+}
+
+// 游戏化：碳积分商城目录
+export function getGamificationCatalog() {
+  return request({
+    url: '/consumer/gamification/catalog',
+    method: 'get'
+  })
+}
+
+// 游戏化：当前状态（余额、森林、徽章、券）
+export function getGamificationState() {
+  return request({
+    url: '/consumer/gamification/state',
+    method: 'get'
+  })
+}
+
+// 游戏化：兑换
+export function redeemGamification(itemCode) {
+  return request({
+    url: '/consumer/gamification/redeem',
+    method: 'post',
+    data: { itemCode }
   })
 }
 

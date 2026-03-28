@@ -72,6 +72,12 @@ Invoke-SqlFile $mysql (Join-Path $root "docs\sql\schema-compat.sql")
 
 Invoke-SqlFile $mysql (Join-Path $root "docs\sql\demo-seed.sql")
 
+# 碳积分兑换、用户优惠券、订单优惠字段（可重复执行）
+$carbonGm = Join-Path $root "docs\sql\carbon-gamification.sql"
+if (Test-Path $carbonGm) {
+  Invoke-SqlFile $mysql $carbonGm $false
+}
+
 Write-Host ""
 Write-Host "Demo DB setup completed."
 Write-Host "Demo accounts:"

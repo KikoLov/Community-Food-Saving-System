@@ -30,11 +30,7 @@
               <tr v-for="community in communities" :key="community.communityId" style="border-bottom: 1px solid #dee2e6;">
                 <td style="padding: 12px; font-weight: 500;">{{ community.communityName }}</td>
                 <td style="padding: 12px;"><code>{{ community.communityCode }}</code></td>
-                <td style="padding: 12px;">
-                  <span class="badge-info">{{ community.province }}</span>
-                  <span class="badge-info">{{ community.city }}</span>
-                  <span class="badge-info">{{ community.district }}</span>
-                </td>
+                <td style="padding: 12px;">{{ [community.province, community.city, community.district].filter(Boolean).join(' ') }}</td>
                 <td style="padding: 12px;">{{ community.address }}</td>
                 <td style="padding: 12px;">
                   <span class="badge" :class="community.status === 1 ? 'badge-success' : 'badge-secondary'">
@@ -119,7 +115,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getCommunitiesAdmin, addCommunity, updateCommunity, deleteCommunity as deleteCommunityApi } from '@/api/admin'
 import { Message } from '@/utils/message'
-import { fixCommunityName } from '@/utils/textFixer'
+import { fixCommunityRecord } from '@/utils/textFixer'
 
 const communities = ref([])
 const loading = ref(false)
@@ -145,10 +141,7 @@ const loadCommunities = async () => {
   loading.value = true
   try {
     const res = await getCommunitiesAdmin()
-    communities.value = (res.data || []).map((item) => ({
-      ...item,
-      communityName: fixCommunityName(item.communityId, item.communityName)
-    }))
+    communities.value = (res.data || []).map(fixCommunityRecord)
   } catch (error) {
     Message.error('加载社区列表失败')
     console.error(error)
@@ -229,11 +222,6 @@ const saveCommunity = async () => {
   border-radius: 4px;
   font-size: 0.85em;
   margin-right: 4px;
-}
-
-.badge-info {
-  background: #17a2b8;
-  color: white;
 }
 
 .badge-success {

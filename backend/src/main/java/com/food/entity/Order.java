@@ -64,6 +64,26 @@ public class Order extends BaseEntity {
     private BigDecimal totalAmount;
 
     /**
+     * 使用的用户优惠券ID（biz_user_coupon）
+     */
+    private Long userCouponId;
+
+    /**
+     * 优惠前小计（未用券时通常等于 totalAmount）
+     */
+    private BigDecimal originalAmount;
+
+    /**
+     * 本单优惠金额
+     */
+    private BigDecimal discountAmount;
+
+    /**
+     * 券码快照
+     */
+    private String couponCode;
+
+    /**
      * 6位核销码
      */
     private String verifyCode;

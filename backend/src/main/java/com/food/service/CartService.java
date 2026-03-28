@@ -134,7 +134,7 @@ public class CartService {
      * 购物车结算（可指定结算项；不传则默认结算全部）
      */
     @Transactional
-    public List<Order> checkoutCart(Long userId, List<Long> cartIds) {
+    public List<Order> checkoutCart(Long userId, List<Long> cartIds, String couponCode) {
         LambdaQueryWrapper<Cart> wrapper = new LambdaQueryWrapper<Cart>()
                 .eq(Cart::getUserId, userId);
         if (cartIds != null && !cartIds.isEmpty()) {
@@ -145,6 +145,10 @@ public class CartService {
             throw new RuntimeException("购物车为空，无法结算");
         }
 
+        if (couponCode != null && !couponCode.isBlank() && items.size() != 1) {
+            throw new RuntimeException("使用优惠券时请先只结算一件商品（购物车仅保留一条记录）");
+        }
+
         List<Order> createdOrders = new ArrayList<>();
         for (Cart item : items) {
             if (item.getQuantity() == null || item.getQuantity() <= 0) {
@@ -153,6 +157,9 @@ public class CartService {
             OrderCreateDTO dto = new OrderCreateDTO();
             dto.setProductId(item.getProductId());
             dto.setQuantity(item.getQuantity());
+            if (couponCode != null && !couponCode.isBlank()) {
+                dto.setCouponCode(couponCode.trim());
+            }
             createdOrders.add(orderService.createOrder(userId, dto));
         }
 

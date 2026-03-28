@@ -162,7 +162,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { getCommunities, getProducts, addToCart as addToCartApi, getMerchantRatingSummary } from '@/api/consumer'
 import { Message } from '@/utils/message'
-import { fixCommunityName, isLikelyGarbled } from '@/utils/textFixer'
+import { fixCommunityRecord, isLikelyGarbled } from '@/utils/textFixer'
 import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
 import { normalizeProductRecord, normalizeCategoryName } from '@/utils/demoTextNormalizer'
 
@@ -236,10 +236,7 @@ const loadCommunities = async () => {
   loading.value = true
   try {
     const res = await getCommunities()
-    communities.value = (res.data || []).map((item) => ({
-      ...item,
-      communityName: fixCommunityName(item.communityId, item.communityName)
-    }))
+    communities.value = (res.data || []).map(fixCommunityRecord)
   } catch (error) {
     Message.error('加载社区列表失败')
   } finally {
@@ -325,10 +322,7 @@ const loadMerchantRatings = async () => {
 }
 
 const selectCommunity = (community) => {
-  selectedCommunity.value = {
-    ...community,
-    communityName: fixCommunityName(community.communityId, community.communityName)
-  }
+  selectedCommunity.value = fixCommunityRecord(community)
   loadProducts()
 }
 

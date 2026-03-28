@@ -35,6 +35,7 @@ public class ConsumerController {
     private final RateLimitService rateLimitService;
     private final IdempotencyService idempotencyService;
     private final ReviewService reviewService;
+    private final UserCouponService userCouponService;
 
     /**
      * 获取商品列表(按社区)
@@ -109,8 +110,18 @@ public class ConsumerController {
                                             @RequestBody(required = false) CartCheckoutDTO dto) {
         LoginUser loginUser = (LoginUser) authentication.getPrincipal();
         List<Long> cartIds = dto == null ? null : dto.getCartIds();
-        List<Order> orders = cartService.checkoutCart(loginUser.getUserId(), cartIds);
+        String couponCode = dto == null ? null : dto.getCouponCode();
+        List<Order> orders = cartService.checkoutCart(loginUser.getUserId(), cartIds, couponCode);
         return Result.success(orders);
+    }
+
+    /**
+     * 未使用的优惠券（结算时可选用）
+     */
+    @GetMapping("/coupons")
+    public Result<List<UserCoupon>> myCoupons(Authentication authentication) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        return Result.success(userCouponService.listUnusedForUser(loginUser.getUserId()));
     }
 
     /**

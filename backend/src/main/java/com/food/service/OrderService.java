@@ -31,6 +31,7 @@ public class OrderService {
     private final UserProfileMapper userProfileMapper;
     private final CarbonLogMapper carbonLogMapper;
     private final ProductService productService;
+    private final UserCouponService userCouponService;
 
     /**
      * 创建订单
@@ -49,7 +50,19 @@ public class OrderService {
             throw new RuntimeException("商品已过期");
         }
 
-        BigDecimal totalAmount = product.getDiscountPrice().multiply(new BigDecimal(orderDTO.getQuantity()));
+        BigDecimal subtotal = product.getDiscountPrice().multiply(new BigDecimal(orderDTO.getQuantity()));
+
+        Long userCouponId = null;
+        BigDecimal discount = BigDecimal.ZERO;
+        String couponSnapshot = null;
+        if (orderDTO.getCouponCode() != null && !orderDTO.getCouponCode().isBlank()) {
+            var uc = userCouponService.validateForOrder(userId, orderDTO.getCouponCode(), subtotal, product.getMerchantId());
+            discount = userCouponService.computeDiscount(uc, subtotal);
+            userCouponId = uc.getCouponId();
+            couponSnapshot = uc.getCouponCode();
+        }
+        BigDecimal payable = subtotal.subtract(discount);
+
         UserProfile userProfile = userProfileMapper.selectOne(
                 new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
         );
@@ -65,7 +78,7 @@ public class OrderService {
             userProfile.setWalletBalance(new BigDecimal("200.00"));
             userProfileMapper.updateById(userProfile);
         }
-        if (userProfile.getWalletBalance().compareTo(totalAmount) < 0) {
+        if (userProfile.getWalletBalance().compareTo(payable) < 0) {
             throw new RuntimeException("余额不足，当前余额: " + userProfile.getWalletBalance());
         }
 
@@ -76,8 +89,8 @@ public class OrderService {
         }
 
         try {
-            // 扣减用户钱包余额
-            userProfile.setWalletBalance(userProfile.getWalletBalance().subtract(totalAmount));
+            // 扣减用户钱包余额（实付）
+            userProfile.setWalletBalance(userProfile.getWalletBalance().subtract(payable));
             userProfile.setUpdateTime(LocalDateTime.now());
             userProfileMapper.updateById(userProfile);
 
@@ -90,7 +103,11 @@ public class OrderService {
             order.setProductName(DemoTextNormalizeUtil.normalizeProductName(product.getProductName()));
             order.setProductImage(product.getProductImage());
             order.setQuantity(orderDTO.getQuantity());
-            order.setTotalAmount(totalAmount);
+            order.setOriginalAmount(subtotal);
+            order.setDiscountAmount(discount);
+            order.setTotalAmount(payable);
+            order.setUserCouponId(userCouponId);
+            order.setCouponCode(couponSnapshot);
             order.setVerifyCode(generateVerifyCode());
             order.setOrderStatus(0); // 待核销
             order.setCreateTime(LocalDateTime.now());
@@ -101,6 +118,10 @@ public class OrderService {
             order.setCarbonSaved(carbonSaved);
 
             orderMapper.insert(order);
+
+            if (userCouponId != null) {
+                userCouponService.markUsed(userCouponId, order.getOrderId());
+            }
 
             return order;
         } catch (Exception e) {
@@ -233,6 +254,20 @@ public class OrderService {
 
         // 回滚库存
         productService.rollbackStock(order.getProductId(), order.getQuantity());
+
+        // 退还钱包（实付金额）
+        UserProfile profile = userProfileMapper.selectOne(
+                new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
+        );
+        if (profile != null && order.getTotalAmount() != null) {
+            BigDecimal bal = profile.getWalletBalance() != null ? profile.getWalletBalance() : BigDecimal.ZERO;
+            profile.setWalletBalance(bal.add(order.getTotalAmount()));
+            profile.setUpdateTime(LocalDateTime.now());
+            userProfileMapper.updateById(profile);
+        }
+
+        // 退回优惠券
+        userCouponService.restoreIfOrderCancelled(order.getUserCouponId());
 
         // 更新订单状态
         order.setOrderStatus(2); // 已取消

@@ -50,7 +50,7 @@ import { useUserStore } from '@/store/user'
 import { getCommunities, bindCommunity } from '@/api/consumer'
 import { getUserInfo } from '@/api/auth'
 import { Message } from '@/utils/message'
-import { fixCommunityName } from '@/utils/textFixer'
+import { fixCommunityRecord } from '@/utils/textFixer'
 
 const userStore = useUserStore()
 
@@ -66,10 +66,7 @@ const profileForm = reactive({
 onMounted(async () => {
   try {
     const communityRes = await getCommunities()
-    communities.value = (communityRes.data || []).map((item) => ({
-      ...item,
-      communityName: fixCommunityName(item.communityId, item.communityName)
-    }))
+    communities.value = (communityRes.data || []).map(fixCommunityRecord)
 
     const userRes = await getUserInfo()
     const userInfo = userRes.data
