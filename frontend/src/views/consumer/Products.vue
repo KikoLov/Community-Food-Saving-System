@@ -46,6 +46,7 @@
               <p v-if="merchantRatingMap[merchant.merchantId]" class="text-muted">
                 好评率：{{ merchantRatingMap[merchant.merchantId].goodRate }}%（{{ merchantRatingMap[merchant.merchantId].totalReviews }}条）
               </p>
+              <button class="btn btn-secondary" @click="goMerchantDetail(merchant.merchantId)">查看详情</button>
             </div>
           </div>
         </div>
@@ -107,7 +108,10 @@
         <div class="card mb-3" v-for="merchant in merchantSections" :key="merchant.merchantId">
           <div class="card-header d-flex justify-between align-center">
             <h3>{{ merchant.merchantName }}</h3>
-            <span class="text-muted">共 {{ merchant.products.length }} 件在售商品</span>
+            <div class="d-flex align-center" style="gap: 10px;">
+              <span class="text-muted">共 {{ merchant.products.length }} 件在售商品</span>
+              <button class="btn btn-secondary" @click="goMerchantDetail(merchant.merchantId)">查看商家详情</button>
+            </div>
           </div>
           <div class="row">
             <div class="col-4" v-for="product in merchant.products" :key="product.productId">
@@ -160,15 +164,18 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { getCommunities, getProducts, addToCart as addToCartApi, getMerchantRatingSummary } from '@/api/consumer'
+import { useRouter } from 'vue-router'
+import { getCommunities, getProducts, getCommunityMerchants, addToCart as addToCartApi, getMerchantRatingSummary } from '@/api/consumer'
 import { Message } from '@/utils/message'
 import { fixCommunityRecord, isLikelyGarbled } from '@/utils/textFixer'
 import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
 import { normalizeProductRecord, normalizeCategoryName } from '@/utils/demoTextNormalizer'
 
 const selectedCommunity = ref(null)
+const router = useRouter()
 const communities = ref([])
 const products = ref([])
+const merchantList = ref([])
 const categories = ref([])
 const selectedCategory = ref(null)
 const keyword = ref('')
@@ -201,7 +208,11 @@ const processedProducts = computed(() => {
 })
 
 const merchantSections = computed(() => {
-  const map = new Map()
+  const map = new Map((merchantList.value || []).map((m) => [m.merchantId, {
+    merchantId: m.merchantId,
+    merchantName: m.merchantName || `商家#${m.merchantId}`,
+    products: []
+  }]))
   processedProducts.value.forEach((p) => {
     const key = p.merchantId
     if (!map.has(key)) {
@@ -214,22 +225,6 @@ const merchantSections = computed(() => {
     map.get(key).products.push(p)
   })
   return Array.from(map.values())
-})
-
-const merchantList = computed(() => {
-  const map = new Map()
-  products.value.forEach((p) => {
-    const key = p.merchantId
-    if (!map.has(key)) {
-      map.set(key, {
-        merchantId: p.merchantId,
-        merchantName: p.merchantName || `商家#${p.merchantId}`,
-        productCount: 0
-      })
-    }
-    map.get(key).productCount++
-  })
-  return Array.from(map.values()).sort((a, b) => b.productCount - a.productCount)
 })
 
 const loadCommunities = async () => {
@@ -247,8 +242,29 @@ const loadCommunities = async () => {
 const loadProducts = async () => {
   loading.value = true
   try {
-    const res = await getProducts(selectedCommunity.value?.communityId)
-    const rawList = res.data || []
+    const selected = selectedCommunity.value || {}
+    const communityId =
+      selected?.communityId ?? selected?.community_id ?? selected?.id ?? null
+    if (!communityId) {
+      // 不要静默失败，否则用户会一直看到空白页
+      Message.error('请选择有效的社区后再查看商品')
+      products.value = []
+      categories.value = []
+      return
+    }
+
+    const [productsRes, merchantsRes] = await Promise.all([
+      getProducts(communityId),
+      getCommunityMerchants(communityId)
+    ])
+    const rawList = productsRes.data || []
+    merchantList.value = (merchantsRes.data || [])
+      .map((m) => ({
+        merchantId: m.merchantId,
+        merchantName: m.merchantName,
+        productCount: Number(m.productCount || 0)
+      }))
+      .sort((a, b) => b.productCount - a.productCount)
     const fallbackByMerchant = {
       7: ['绿城新鲜牛奶', '绿城全麦面包', '绿城苹果果切'],
       8: ['阳光原味酸奶', '阳光蛋糕卷', '阳光鲜橙汁']
@@ -308,7 +324,7 @@ const loadProducts = async () => {
 }
 
 const loadMerchantRatings = async () => {
-  const ids = [...new Set((products.value || []).map(p => p.merchantId).filter(Boolean))]
+  const ids = [...new Set((merchantList.value || []).map(m => m.merchantId).filter(Boolean))]
   const next = {}
   await Promise.all(ids.map(async (merchantId) => {
     try {
@@ -322,13 +338,23 @@ const loadMerchantRatings = async () => {
 }
 
 const selectCommunity = (community) => {
-  selectedCommunity.value = fixCommunityRecord(community)
+  const fixed = fixCommunityRecord(community)
+  // 兼容不同字段命名：后端 JSON 理论上是 communityId，但为避免历史数据字段差异导致空列表
+  const communityId =
+    community?.communityId ?? community?.community_id ?? community?.id ??
+    fixed?.communityId ?? fixed?.community_id ?? fixed?.id ?? null
+  selectedCommunity.value = { ...fixed, communityId }
+
+  // 切换社区时重置筛选，避免上一社区选中的分类/关键词导致“看不到商品”
+  selectedCategory.value = null
+  keyword.value = ''
   loadProducts()
 }
 
 const clearCommunity = () => {
   selectedCommunity.value = null
   products.value = []
+  merchantList.value = []
   categories.value = []
   selectedCategory.value = null
 }
@@ -348,6 +374,15 @@ const handleAddToCart = async (product) => {
 
 const handleImgError = (e) => {
   e.target.src = buildNameBasedProductImage({}, 88)
+}
+
+const goMerchantDetail = (merchantId) => {
+  const communityId = selectedCommunity.value?.communityId || undefined
+  router.push({
+    name: 'ConsumerMerchantDetail',
+    params: { merchantId },
+    query: communityId ? { communityId } : undefined
+  })
 }
 
 const formatDate = (dateStr) => {

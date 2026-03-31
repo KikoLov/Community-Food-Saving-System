@@ -66,8 +66,9 @@ public class DataInitController {
 
             // 2. Create communities
             Community c1 = new Community();
+            c1.setCommunityId(4L);
             c1.setCommunityName("阳光花园");
-            c1.setCommunityCode("SG001");
+            c1.setCommunityCode("YG_DEMO_001");
             c1.setProvince("北京市");
             c1.setCity("北京市");
             c1.setDistrict("朝阳区");
@@ -76,8 +77,9 @@ public class DataInitController {
             communityMapper.insert(c1);
 
             Community c2 = new Community();
+            c2.setCommunityId(3L);
             c2.setCommunityName("绿城小区");
-            c2.setCommunityCode("GC002");
+            c2.setCommunityCode("GC_DEMO_001");
             c2.setProvince("上海市");
             c2.setCity("上海市");
             c2.setDistrict("浦东新区");

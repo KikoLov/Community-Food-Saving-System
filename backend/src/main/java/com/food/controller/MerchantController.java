@@ -143,7 +143,20 @@ public class MerchantController {
     public Result<Product> updateProduct(Authentication authentication,
                                           @PathVariable("id") Long productId,
                                           @Valid @RequestBody ProductDTO productDTO) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        Merchant merchant = merchantService.getMerchantByUserId(loginUser.getUserId());
+        if (merchant == null) {
+            return Result.error("请先完善商户信息");
+        }
+        Product existed = productService.getProductById(productId);
+        if (existed == null) {
+            return Result.error("商品不存在");
+        }
+        if (!java.util.Objects.equals(existed.getMerchantId(), merchant.getMerchantId())) {
+            return Result.error("无权修改该商品");
+        }
         productDTO.setProductId(productId);
+        productDTO.setMerchantId(merchant.getMerchantId());
         Product product = productService.updateProduct(productDTO);
         return Result.success(product);
     }

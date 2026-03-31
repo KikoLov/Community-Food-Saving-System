@@ -13,6 +13,17 @@ param(
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 
+function Test-PortInUse([int]$port) {
+  try {
+    $conn = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+    return $null -ne $conn
+  } catch {
+    # Fallback for environments where Get-NetTCPConnection is unavailable.
+    $result = netstat -ano | Select-String -Pattern (":$port\s+.*LISTENING")
+    return $null -ne $result
+  }
+}
+
 function Assert-Cmd([string]$name) {
   if (-not (Get-Command $name -ErrorAction SilentlyContinue)) {
     throw "Required command not found: $name. Please install it or add to PATH."
@@ -59,18 +70,22 @@ if ($InitDb) {
   }
   Write-Host ""
   Write-Host "== Initializing database =="
-  powershell -ExecutionPolicy Bypass -File (Join-Path $root "setup-demo.ps1") `
+  powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot "setup-demo.ps1") `
     -DbHost $DbHost -DbPort $DbPort -DbUser $DbUser -DbPassword $DbPassword -DbName $DbName
 }
 
 Write-Host ""
 Write-Host "== Starting backend (Spring Boot) =="
-$backendDir = Join-Path $root "..\backend"
+$backendDir = Join-Path $root "backend"
 if (-not (Test-Path $backendDir)) { throw "Backend directory not found: $backendDir" }
-Start-Process -WindowStyle Minimized -WorkingDirectory $backendDir `
-  -FilePath "mvn" `
-  -ArgumentList @("spring-boot:run","-Dspring-boot.run.profiles=dev","-Dspring-boot.run.jvmArguments=-Dserver.port=$BackendPort") `
-  -PassThru | Out-Null
+if (Test-PortInUse $BackendPort) {
+  Write-Warning "Backend port $BackendPort already in use. Skip starting backend."
+} else {
+  Start-Process -WindowStyle Minimized -WorkingDirectory $backendDir `
+    -FilePath "mvn" `
+    -ArgumentList @("spring-boot:run","-Dspring-boot.run.profiles=dev","-Dspring-boot.run.jvmArguments=-Dserver.port=$BackendPort") `
+    -PassThru | Out-Null
+}
 
 Write-Host "Waiting for backend to respond on http://localhost:$BackendPort ..."
 for ($i=0; $i -lt 40; $i++) {
@@ -82,7 +97,7 @@ for ($i=0; $i -lt 40; $i++) {
 
 Write-Host ""
 Write-Host "== Installing frontend deps (first run may take a while) =="
-$frontendDir = Join-Path $root "..\frontend"
+$frontendDir = Join-Path $root "frontend"
 if (-not (Test-Path $frontendDir)) { throw "Frontend directory not found: $frontendDir" }
 Push-Location $frontendDir
 if (-not (Test-Path "node_modules")) {
@@ -92,9 +107,13 @@ Pop-Location
 
 Write-Host ""
 Write-Host "== Starting frontend (Vite dev server) =="
-Start-Process -WindowStyle Minimized -WorkingDirectory $frontendDir `
-  -FilePath "npm" -ArgumentList @("run","dev","--","--port",$FrontendPort) `
-  -PassThru | Out-Null
+if (Test-PortInUse $FrontendPort) {
+  Write-Warning "Frontend port $FrontendPort already in use. Skip starting frontend."
+} else {
+  Start-Process -WindowStyle Minimized -WorkingDirectory $frontendDir `
+    -FilePath "npm" -ArgumentList @("run","dev","--","--port",$FrontendPort) `
+    -PassThru | Out-Null
+}
 
 Write-Host ""
 Write-Host "All set!"

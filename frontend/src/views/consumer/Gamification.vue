@@ -2,10 +2,10 @@
   <div class="gam-page">
     <header class="gam-hero">
       <div class="hero-copy">
-        <p class="eyebrow">Gamification · 像蚂蚁森林一样攒能量</p>
+        <p class="eyebrow">碳积分商城</p>
         <h1>碳积分能量商城</h1>
         <p class="lead">
-          购买临期食品核销后获得<strong>碳积分（Carbon Coins）</strong>，可兑换虚拟树苗、环保徽章与合作优惠券。
+          购买临期食品核销后获得<strong>碳积分</strong>，可兑换虚拟树苗、环保徽章与合作优惠券。
         </p>
         <div class="hero-stats">
           <div class="stat-pill">

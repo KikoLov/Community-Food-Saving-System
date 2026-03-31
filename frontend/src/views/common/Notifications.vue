@@ -82,7 +82,10 @@ const router = useRouter()
 const userStore = useUserStore()
 const notifications = ref([])
 const dismissedIds = ref([])
-const dismissedKey = computed(() => `notifications.dismissed.userType.${userStore.userType || 0}`)
+const dismissedKey = computed(() => {
+  const uid = userStore.userInfo?.userId || 'unknown'
+  return `notifications.dismissed.user.${uid}.type.${userStore.userType || 0}`
+})
 const selectedLevel = ref('')
 const onlyUnread = ref(true)
 

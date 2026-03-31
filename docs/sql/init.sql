@@ -292,10 +292,10 @@ INSERT INTO biz_user_profile (user_id, community_id, carbon_points, total_carbon
 
 -- 插入测试商品数据
 INSERT INTO biz_product (merchant_id, category_id, product_name, product_image, original_price, discount_price, stock, unit, expire_date, expire_datetime, description, warning_hours, status, create_time) VALUES
-(1, 1, '新鲜面包片', '/images/bread.jpg', 8.00, 4.00, 50, '袋', DATE_ADD(CURDATE(), INTERVAL 2 DAY), DATE_ADD(NOW(), INTERVAL 48 HOUR), '当天现烤面包片，口感松软', 24, 1, NOW()),
-(1, 2, '有机苹果', '/images/apple.jpg', 12.00, 6.00, 30, '斤', DATE_ADD(CURDATE(), INTERVAL 3 DAY), DATE_ADD(NOW(), INTERVAL 72 HOUR), '新鲜有机苹果，甜脆可口', 24, 1, NOW()),
-(1, 3, '纯牛奶', '/images/milk.jpg', 6.00, 3.50, 100, '盒', DATE_ADD(CURDATE(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 120 HOUR), '新鲜纯牛奶，营养丰富', 24, 1, NOW()),
-(1, 5, '橙汁饮料', '/images/orange_juice.jpg', 5.00, 2.50, 80, '瓶', DATE_ADD(CURDATE(), INTERVAL 7 DAY), DATE_ADD(NOW(), INTERVAL 168 HOUR), '鲜榨橙汁，天然健康', 24, 1, NOW());
+(1, 1, '新鲜面包片', '/images/bread.jpg', 8.00, 4.00, 50, '袋', DATE_ADD(CURDATE(), INTERVAL 730 DAY), DATE_ADD(NOW(), INTERVAL 730 DAY), '当天现烤面包片，口感松软', 24, 1, NOW()),
+(1, 2, '有机苹果', '/images/apple.jpg', 12.00, 6.00, 30, '斤', DATE_ADD(CURDATE(), INTERVAL 730 DAY), DATE_ADD(NOW(), INTERVAL 730 DAY), '新鲜有机苹果，甜脆可口', 24, 1, NOW()),
+(1, 3, '纯牛奶', '/images/milk.jpg', 6.00, 3.50, 100, '盒', DATE_ADD(CURDATE(), INTERVAL 730 DAY), DATE_ADD(NOW(), INTERVAL 730 DAY), '新鲜纯牛奶，营养丰富', 24, 1, NOW()),
+(1, 5, '橙汁饮料', '/images/orange_juice.jpg', 5.00, 2.50, 80, '瓶', DATE_ADD(CURDATE(), INTERVAL 730 DAY), DATE_ADD(NOW(), INTERVAL 730 DAY), '鲜榨橙汁，天然健康', 24, 1, NOW());
 
 -- 插入测试订单
 INSERT INTO biz_order (order_no, user_id, merchant_id, product_id, product_name, product_image, quantity, total_amount, verify_code, order_status, carbon_saved, create_time) VALUES

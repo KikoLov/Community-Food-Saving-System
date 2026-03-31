@@ -110,7 +110,7 @@ public class SecurityConfig {
                 // 配置请求授权
                 .authorizeHttpRequests(auth -> auth
                         // 公开接口
-                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/captcha").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register", "/api/auth/captcha", "/api/auth/communities").permitAll()
                         // 默认不对外开放调试接口，避免生产环境暴露高危能力
                         .requestMatchers(testEndpoints).access((authentication, context) ->
                                 new org.springframework.security.authorization.AuthorizationDecision(allowTestEndpoints))

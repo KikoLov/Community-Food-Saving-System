@@ -18,6 +18,14 @@ export function register(data) {
   })
 }
 
+// Register page communities (public)
+export function getRegisterCommunities() {
+  return request({
+    url: '/auth/communities',
+    method: 'get'
+  })
+}
+
 // Get user info
 export function getUserInfo() {
   return request({

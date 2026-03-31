@@ -77,7 +77,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { getNotificationUnreadCount } from '@/api/notification'
+import { getNotifications } from '@/api/notification'
 
 const route = useRoute()
 const router = useRouter()
@@ -87,10 +87,23 @@ let timer = null
 
 const userName = computed(() => userStore.userInfo?.nickName || '管理员')
 
+const getDismissedKey = () => {
+  const uid = userStore.userInfo?.userId || 'unknown'
+  return `notifications.dismissed.user.${uid}.type.${userStore.userType || 0}`
+}
+
 const loadUnreadCount = async () => {
   try {
-    const res = await getNotificationUnreadCount()
-    unreadCount.value = res.data?.count || 0
+    const res = await getNotifications()
+    const list = res.data || []
+    let dismissed = []
+    try {
+      dismissed = JSON.parse(localStorage.getItem(getDismissedKey()) || '[]')
+    } catch (e) {
+      dismissed = []
+    }
+    const hidden = new Set(dismissed)
+    unreadCount.value = list.filter(x => !hidden.has(x.id)).length
   } catch (e) {
     unreadCount.value = 0
   }

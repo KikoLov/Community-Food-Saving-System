@@ -1,6 +1,7 @@
 package com.food.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
@@ -106,10 +107,12 @@ public class Order extends BaseEntity {
     /**
      * 冗余字段：买家用户名
      */
+    @TableField(exist = false)
     private String userName;
 
     /**
      * 冗余字段：商户名称
      */
+    @TableField(exist = false)
     private String merchantName;
 }

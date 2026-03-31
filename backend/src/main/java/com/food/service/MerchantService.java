@@ -1,6 +1,8 @@
 package com.food.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.food.dto.ConsumerMerchantDetailDTO;
+import com.food.dto.CommunityMerchantDTO;
 import com.food.dto.MerchantAdminStatsDTO;
 import com.food.entity.Merchant;
 import com.food.entity.Order;
@@ -59,6 +61,38 @@ public class MerchantService {
         LambdaQueryWrapper<Merchant> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Merchant::getUserId, userId);
         return merchantMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 居民端：按社区获取商家列表（即使暂无在售商品也返回）
+     */
+    public List<CommunityMerchantDTO> getCommunityMerchants(Long communityId) {
+        return merchantMapper.selectCommunityMerchants(communityId);
+    }
+
+    /**
+     * 居民端：商家详情（含商家全部商品，支持0库存/下架）
+     */
+    public ConsumerMerchantDetailDTO getConsumerMerchantDetail(Long merchantId, Long communityId) {
+        Merchant merchant = merchantMapper.selectById(merchantId);
+        if (merchant == null || (merchant.getDeleted() != null && merchant.getDeleted() == 1)) {
+            throw new RuntimeException("商家不存在");
+        }
+        if (communityId != null && !communityId.equals(merchant.getCommunityId())) {
+            throw new RuntimeException("该商家不属于当前社区");
+        }
+        DemoTextNormalizeUtil.normalizeMerchant(merchant);
+        List<Product> products = productMapper.selectList(new LambdaQueryWrapper<Product>()
+                .eq(Product::getMerchantId, merchantId)
+                .eq(Product::getDeleted, 0)
+                .orderByDesc(Product::getCreateTime));
+        if (products != null) {
+            products.forEach(DemoTextNormalizeUtil::normalizeProduct);
+        }
+        ConsumerMerchantDetailDTO dto = new ConsumerMerchantDetailDTO();
+        dto.setMerchant(merchant);
+        dto.setProducts(products);
+        return dto;
     }
 
     /**

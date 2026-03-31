@@ -23,7 +23,6 @@ public class ProductDTO {
     /**
      * 商户ID
      */
-    @NotNull(message = "商户ID不能为空")
     private Long merchantId;
 
     /**

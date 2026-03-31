@@ -160,8 +160,11 @@ public class OrderService {
                 new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, order.getUserId())
         );
         if (userProfile != null) {
-            // 碳积分 = 碳减排量 * 10
-            BigDecimal carbonPoints = order.getCarbonSaved().multiply(new BigDecimal("10"));
+            // 提高兑换速度：碳积分按实付金额计算，约消费 20 元可兑换 100 分档位券
+            // 规则：碳积分 = 实付金额 * 5
+            BigDecimal carbonPoints = (order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount())
+                    .multiply(new BigDecimal("5"))
+                    .setScale(2, RoundingMode.HALF_UP);
 
             userProfile.setCarbonPoints(userProfile.getCarbonPoints().add(carbonPoints));
             userProfile.setTotalCarbonSaved(userProfile.getTotalCarbonSaved().add(order.getCarbonSaved()));
@@ -176,7 +179,7 @@ public class OrderService {
             carbonLog.setCarbonPoints(carbonPoints);
             carbonLog.setCarbonSaved(order.getCarbonSaved());
             carbonLog.setLogType(1); // 订单获得
-            carbonLog.setDescription("订单核销获得碳积分");
+            carbonLog.setDescription("订单核销获得碳积分（按实付金额计算）");
             carbonLog.setCreateTime(LocalDateTime.now());
             carbonLogMapper.insert(carbonLog);
         }

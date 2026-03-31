@@ -34,6 +34,11 @@ const routes = [
         component: () => import('@/views/consumer/Products.vue')
       },
       {
+        path: 'merchant/:merchantId',
+        name: 'ConsumerMerchantDetail',
+        component: () => import('@/views/consumer/MerchantDetail.vue')
+      },
+      {
         path: 'cart',
         name: 'ConsumerCart',
         component: () => import('@/views/consumer/Cart.vue')

@@ -2,6 +2,8 @@ package com.food.controller;
 
 import com.food.common.Result;
 import com.food.dto.CartCheckoutDTO;
+import com.food.dto.ConsumerMerchantDetailDTO;
+import com.food.dto.CommunityMerchantDTO;
 import com.food.dto.MerchantRatingSummaryDTO;
 import com.food.dto.OrderCreateDTO;
 import com.food.dto.ReviewCreateDTO;
@@ -28,6 +30,7 @@ import java.util.Map;
 public class ConsumerController {
 
     private final ProductService productService;
+    private final MerchantService merchantService;
     private final CartService cartService;
     private final OrderService orderService;
     private final CarbonService carbonService;
@@ -47,6 +50,26 @@ public class ConsumerController {
         }
         List<Product> products = productService.getProductsByCommunity(communityId);
         return Result.success(products);
+    }
+
+    /**
+     * 获取社区商家列表（不依赖商品库存）
+     */
+    @GetMapping("/merchants")
+    public Result<List<CommunityMerchantDTO>> getCommunityMerchants(@RequestParam(required = false) Long communityId) {
+        if (communityId == null) {
+            return Result.error("请先选择社区");
+        }
+        return Result.success(merchantService.getCommunityMerchants(communityId));
+    }
+
+    /**
+     * 获取商家详情（含全部商品状态）
+     */
+    @GetMapping("/merchant/{merchantId}/detail")
+    public Result<ConsumerMerchantDetailDTO> getMerchantDetail(@PathVariable Long merchantId,
+                                                               @RequestParam(required = false) Long communityId) {
+        return Result.success(merchantService.getConsumerMerchantDetail(merchantId, communityId));
     }
 
     /**

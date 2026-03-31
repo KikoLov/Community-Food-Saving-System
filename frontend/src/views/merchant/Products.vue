@@ -1,18 +1,5 @@
 <template>
   <div class="products-page">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-      <h4 class="mb-0"><i class="fas fa-box me-2"></i>商品管理</h4>
-      <div>
-        <button class="btn btn-primary me-2" @click="handleAdd">
-          <i class="fas fa-plus me-1"></i> 添加商品
-        </button>
-        <label class="btn btn-outline-secondary mb-0">
-          <i class="fas fa-file-import me-1"></i> 批量导入
-          <input type="file" class="d-none" accept=".xlsx,.xls" @change="handleImport">
-        </label>
-      </div>
-    </div>
-
     <div class="batch-toolbar mb-3">
       <div class="left">
         <span class="selected-tip">已选 {{ selectedIds.length }} 项</span>
@@ -218,7 +205,6 @@ import {
   updateProduct,
   deleteProduct,
   getCategories,
-  importProducts,
   batchUpdateProductStatus,
   batchDeleteProducts,
   uploadProductImage,
@@ -319,18 +305,6 @@ const getStatusClass = (status) => {
 const getStatusText = (status) => {
   const texts = { 0: '草稿/下架', 1: '在售', 2: '已售罄' }
   return texts[status] || '未知'
-}
-
-const handleAdd = () => {
-  dialogTitle.value = '添加商品'
-  isEdit.value = false
-  Object.assign(productForm, {
-    productId: null, productName: '', categoryId: null,
-    originalPrice: 0, discountPrice: 0, minPrice: 0, stock: 0,
-    expireDate: '', expireDatetime: '', warningHours: 24, description: '', status: 1, productImage: ''
-  })
-  productImagePreview.value = getProductImage(productForm)
-  openModal()
 }
 
 const handleEdit = (row) => {
@@ -477,6 +451,23 @@ const handleBatchDelete = async () => {
 
 const handleSubmit = async (targetStatus = 1) => {
   try {
+    if (!productForm.productName || !String(productForm.productName).trim()) {
+      Message.warning('请填写商品名称')
+      return
+    }
+    if (!productForm.categoryId) {
+      Message.warning('请选择商品分类')
+      return
+    }
+    if (!productForm.expireDate) {
+      Message.warning('请选择过期日期')
+      return
+    }
+    if (!productForm.expireDatetime) {
+      Message.warning('请选择过期时间')
+      return
+    }
+
     const original = Number(productForm.originalPrice || 0)
     const min = Number(productForm.minPrice || 0)
     if (original <= 0) {
@@ -491,12 +482,17 @@ const handleSubmit = async (targetStatus = 1) => {
       Message.warning('最低底价不能高于原价')
       return
     }
-    productForm.status = targetStatus
+    const payload = {
+      ...productForm,
+      status: targetStatus,
+      // 后端要求 LocalDateTime；将 date + time 组装为 ISO 本地时间字符串
+      expireDatetime: `${productForm.expireDate}T${String(productForm.expireDatetime).slice(0, 5)}:00`
+    }
     if (isEdit.value) {
-      await updateProduct(productForm.productId, productForm)
+      await updateProduct(productForm.productId, payload)
       Message.success(targetStatus === 1 ? '更新并发布成功' : '草稿保存成功')
     } else {
-      await addProduct(productForm)
+      await addProduct(payload)
       Message.success(targetStatus === 1 ? '发布成功' : '草稿创建成功')
     }
     if (productModal) {
@@ -523,21 +519,6 @@ const autoPricingPreview = computed(() => {
   return dynamic.toFixed(2)
 })
 
-const handleImport = async (event) => {
-  const file = event.target.files[0]
-  if (!file) return
-
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    await importProducts(file)
-    Message.success('导入成功')
-    await loadProducts()
-  } catch (error) {
-    console.error(error)
-  }
-  event.target.value = ''
-}
 </script>
 
 <style scoped>

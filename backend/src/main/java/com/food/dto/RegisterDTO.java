@@ -48,4 +48,14 @@ public class RegisterDTO {
      */
     @NotNull(message = "用户类型不能为空")
     private Integer userType;
+
+    /**
+     * 商户注册所属社区ID（仅商户注册时使用）
+     */
+    private Long merchantCommunityId;
+
+    /**
+     * 商户注册所属社区编码（优先于ID，用于避免社区ID漂移导致绑错）
+     */
+    private String merchantCommunityCode;
 }

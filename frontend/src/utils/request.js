@@ -27,6 +27,7 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   response => {
     const res = response.data
+    const reqUrl = response.config?.url || ''
 
     if (res.code === 200) {
       return res
@@ -34,6 +35,12 @@ request.interceptors.response.use(
       Message.warning(res.msg || '请求过于频繁，请稍后再试')
       return Promise.reject(new Error(res.msg || '请求过于频繁'))
     } else if (res.code === 401) {
+      // 登录/注册/注册页社区列表等公开接口，不应触发全局登出与跳转
+      if (reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register') || reqUrl.includes('/auth/communities')) {
+        const text = res.msg || (reqUrl.includes('/auth/communities') ? '社区列表加载失败' : '用户名或密码错误')
+        Message.error(text)
+        return Promise.reject(new Error(text))
+      }
       Message.error('登录已过期，请重新登录')
       const userStore = useUserStore()
       userStore.logoutAction()
@@ -60,8 +67,8 @@ request.interceptors.response.use(
     // 后端对错误常返回 HTTP 4xx + JSON { code, msg }，需优先展示 msg，避免只显示 “Request failed with status code 401”
     if (status === 401) {
       // 登录/注册失败：只提示原因，不清 token、不跳转
-      if (reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register')) {
-        const text = backendMsg || '用户名或密码错误'
+      if (reqUrl.includes('/auth/login') || reqUrl.includes('/auth/register') || reqUrl.includes('/auth/communities')) {
+        const text = backendMsg || (reqUrl.includes('/auth/communities') ? '社区列表加载失败' : '用户名或密码错误')
         Message.error(text)
         return Promise.reject(new Error(text))
       }

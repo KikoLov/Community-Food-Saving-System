@@ -116,9 +116,9 @@ INSERT INTO biz_product (
   expire_date, expire_datetime, description, warning_hours, status, deleted, create_time, update_time
 ) VALUES
   (@merchant_id, @bakery_id, '演示面包', '/images/demo-bread.png', 10.00, 5.00, 40, '袋',
-   DATE_ADD(CURDATE(), INTERVAL 2 DAY), DATE_ADD(NOW(), INTERVAL 36 HOUR), '演示商品：次日到期烘焙', 24, 1, 0, NOW(), NOW()),
+   DATE_ADD(CURDATE(), INTERVAL 730 DAY), DATE_ADD(NOW(), INTERVAL 730 DAY), '演示商品：烘焙（过期时间已拉长便于演示）', 24, 1, 0, NOW(), NOW()),
   (@merchant_id, @drink_id, '演示果汁', '/images/demo-juice.png', 8.00, 4.00, 60, '瓶',
-   DATE_ADD(CURDATE(), INTERVAL 4 DAY), DATE_ADD(NOW(), INTERVAL 72 HOUR), '演示商品：临期饮料', 24, 1, 0, NOW(), NOW());
+   DATE_ADD(CURDATE(), INTERVAL 730 DAY), DATE_ADD(NOW(), INTERVAL 730 DAY), '演示商品：饮料（过期时间已拉长便于演示）', 24, 1, 0, NOW(), NOW());
 
 -- 8) Optional demo pending order (for merchant verify flow)
 SET @demo_product_id = (

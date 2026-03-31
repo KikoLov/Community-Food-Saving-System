@@ -22,7 +22,9 @@ C:\projects\food-saving-platform-new\backend\src\main\java\com\food\controller\N
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\dto\gamification\GamificationStateDTO.java
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\dto\MerchantAdminStatsDTO.java
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\config\MyBatisPlusConfig.java
+C:\projects\food-saving-platform-new\backend\src\main\java\com\food\dto\ConsumerMerchantDetailDTO.java
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\dto\gamification\RedeemResultDTO.java
+C:\projects\food-saving-platform-new\backend\src\main\java\com\food\dto\CommunityMerchantDTO.java
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\mapper\OrderMapper.java
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\dto\gamification\RedeemRequestDTO.java
 C:\projects\food-saving-platform-new\backend\src\main\java\com\food\entity\OperationLog.java

@@ -83,7 +83,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { getNotificationUnreadCount } from '@/api/notification'
+import { getNotifications } from '@/api/notification'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,10 +93,23 @@ let timer = null
 
 const userName = computed(() => userStore.userInfo?.nickName || '商户')
 
+const getDismissedKey = () => {
+  const uid = userStore.userInfo?.userId || 'unknown'
+  return `notifications.dismissed.user.${uid}.type.${userStore.userType || 0}`
+}
+
 const loadUnreadCount = async () => {
   try {
-    const res = await getNotificationUnreadCount()
-    unreadCount.value = res.data?.count || 0
+    const res = await getNotifications()
+    const list = res.data || []
+    let dismissed = []
+    try {
+      dismissed = JSON.parse(localStorage.getItem(getDismissedKey()) || '[]')
+    } catch (e) {
+      dismissed = []
+    }
+    const hidden = new Set(dismissed)
+    unreadCount.value = list.filter(x => !hidden.has(x.id)).length
   } catch (e) {
     unreadCount.value = 0
   }
@@ -261,40 +274,46 @@ const handleLogout = () => {
 .sidebar-menu {
   flex: 1;
   list-style: none;
-  padding: 20px 0;
+  padding: 16px 0;
   margin: 0;
 }
 
 .sidebar-item {
-  margin: 5px 12px;
+  margin: 8px 12px;
 }
 
 .sidebar-link {
   display: flex;
   align-items: center;
-  padding: 14px 20px;
-  color: rgba(241, 250, 243, 0.9);
+  padding: 13px 16px;
+  color: rgba(236, 247, 239, 0.94);
   text-decoration: none;
-  border-radius: 14px;
-  transition: all 0.3s ease;
-  font-weight: 500;
-  border: 1px solid transparent;
+  border-radius: 12px;
+  transition: all 0.22s ease;
+  font-weight: 600;
+  border: 1px solid rgba(177, 216, 190, 0.14);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: none;
 }
 
 .sidebar-link:hover {
-  background: rgba(214, 241, 222, 0.12);
+  transform: translateX(2px);
+  background: rgba(166, 227, 185, 0.16);
   color: #fff;
-  border-color: rgba(189, 235, 204, 0.18);
+  border-color: rgba(200, 240, 215, 0.26);
+  box-shadow: none;
 }
 
 .sidebar-item.active .sidebar-link {
-  background: linear-gradient(135deg, #38ff61, #12df48);
-  color: #07381f;
-  border-color: rgba(210, 255, 221, 0.9);
-  box-shadow:
-    inset 0 0 0 1px rgba(234, 255, 240, 0.45),
-    0 0 22px rgba(64, 255, 119, 0.45);
+  background: #48de74;
+  color: #083e22;
+  border-color: rgba(231, 255, 237, 0.82);
+  box-shadow: none;
   font-weight: 700;
+}
+
+.sidebar-item.active .menu-icon {
+  transform: none;
 }
 
 .notify-link {
@@ -316,14 +335,17 @@ const handleLogout = () => {
 }
 
 .menu-icon {
-  font-size: 1.3em;
+  font-size: 1.15em;
   margin-right: 12px;
-  width: 20px;
+  width: 24px;
   text-align: center;
+  filter: none;
+  transition: none;
 }
 
 .menu-text {
-  font-size: 1em;
+  font-size: 1.02em;
+  letter-spacing: 0.02em;
 }
 
 .sidebar-footer {

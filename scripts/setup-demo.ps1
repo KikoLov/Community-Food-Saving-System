@@ -72,6 +72,16 @@ Invoke-SqlFile $mysql (Join-Path $root "docs\sql\schema-compat.sql")
 
 Invoke-SqlFile $mysql (Join-Path $root "docs\sql\demo-seed.sql")
 
+$dualMerchants = Join-Path $root "docs\sql\seed-dual-merchants-products.sql"
+if (Test-Path $dualMerchants) {
+  Invoke-SqlFile $mysql $dualMerchants $false
+}
+
+$refreshExpiry = Join-Path $root "docs\sql\refresh-demo-products-expiry.sql"
+if (Test-Path $refreshExpiry) {
+  Invoke-SqlFile $mysql $refreshExpiry $true
+}
+
 # 碳积分兑换、用户优惠券、订单优惠字段（可重复执行）
 $carbonGm = Join-Path $root "docs\sql\carbon-gamification.sql"
 if (Test-Path $carbonGm) {
@@ -83,4 +93,5 @@ Write-Host "Demo DB setup completed."
 Write-Host "Demo accounts:"
 Write-Host "  - admin / admin123"
 Write-Host "  - consumer / consumer123"
-Write-Host "  - merchant / merchant123"
+Write-Host "  - merchant1 / merchant123"
+Write-Host "  - merchant2 / merchant123"

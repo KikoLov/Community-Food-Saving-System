@@ -15,6 +15,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -34,6 +35,7 @@ public class AdminController {
     private final OrderService orderService;
     private final OperationLogService operationLogService;
     private final JdbcTemplate jdbcTemplate;
+    private final ProductService productService;
 
     /**
      * 修复数据库编码问题（临时方法）
@@ -293,6 +295,24 @@ public class AdminController {
                 "xAxis", List.of("1月", "2月", "3月", "4月", "5月", "6月"),
                 "carbonData", List.of(120, 200, 150, 280, 210, 320),
                 "foodData", List.of(80, 120, 90, 160, 110, 180)
+        ));
+    }
+
+    /**
+     * 动态定价曲线预览（论文/运营分析辅助）
+     */
+    @GetMapping("/pricing/curve")
+    public Result<Map<String, Object>> pricingCurve(@RequestParam BigDecimal originalPrice,
+                                                    @RequestParam BigDecimal minPrice,
+                                                    @RequestParam(defaultValue = "72") Integer totalHours,
+                                                    @RequestParam(required = false) BigDecimal categoryFactor,
+                                                    @RequestParam(defaultValue = "exponential") String strategy) {
+        return Result.success(Map.of(
+                "strategy", strategy,
+                "originalPrice", originalPrice,
+                "minPrice", minPrice,
+                "totalHours", totalHours,
+                "points", productService.buildPricingCurve(originalPrice, minPrice, totalHours, categoryFactor, strategy)
         ));
     }
 

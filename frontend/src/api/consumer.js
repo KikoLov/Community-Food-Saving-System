@@ -153,6 +153,24 @@ export function getCommunities() {
   })
 }
 
+// Get merchants by community (includes merchants with zero on-sale products)
+export function getCommunityMerchants(communityId) {
+  return request({
+    url: '/consumer/merchants',
+    method: 'get',
+    params: { communityId }
+  })
+}
+
+// Merchant detail for consumer (includes all product statuses)
+export function getConsumerMerchantDetail(merchantId, communityId = null) {
+  return request({
+    url: `/consumer/merchant/${merchantId}/detail`,
+    method: 'get',
+    params: { communityId: communityId || undefined }
+  })
+}
+
 // Upload review image
 export function uploadReviewImage(file) {
   const formData = new FormData()

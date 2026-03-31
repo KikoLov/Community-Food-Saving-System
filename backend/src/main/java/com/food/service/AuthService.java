@@ -6,6 +6,8 @@ import com.food.dto.RegisterDTO;
 import com.food.entity.Merchant;
 import com.food.entity.User;
 import com.food.entity.UserProfile;
+import com.food.entity.Community;
+import com.food.mapper.CommunityMapper;
 import com.food.mapper.MerchantMapper;
 import com.food.mapper.UserMapper;
 import com.food.mapper.UserProfileMapper;
@@ -21,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * 认证服务
@@ -32,6 +35,7 @@ public class AuthService {
     private final UserMapper userMapper;
     private final UserProfileMapper userProfileMapper;
     private final MerchantMapper merchantMapper;
+    private final CommunityMapper communityMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
@@ -83,9 +87,44 @@ public class AuthService {
 
         // 如果是商户，创建商户记录
         if (registerDTO.getUserType() == 2) {
+            Long communityId = registerDTO.getMerchantCommunityId();
+            String communityCode = registerDTO.getMerchantCommunityCode();
+            if (communityId == null && (communityCode == null || communityCode.isBlank())) {
+                throw new RuntimeException("商户注册必须选择所属社区");
+            }
+
+            Community community = null;
+            if (communityCode != null && !communityCode.isBlank()) {
+                LambdaQueryWrapper<Community> byCodeWrapper = new LambdaQueryWrapper<>();
+                byCodeWrapper.eq(Community::getCommunityCode, communityCode)
+                        .eq(Community::getStatus, 1)
+                        .eq(Community::getDeleted, 0)
+                        .last("LIMIT 1");
+                community = communityMapper.selectOne(byCodeWrapper);
+            }
+            if (community == null && communityId != null) {
+                LambdaQueryWrapper<Community> byIdWrapper = new LambdaQueryWrapper<>();
+                byIdWrapper.eq(Community::getCommunityId, communityId)
+                        .eq(Community::getStatus, 1)
+                        .eq(Community::getDeleted, 0)
+                        .last("LIMIT 1");
+                community = communityMapper.selectOne(byIdWrapper);
+            }
+            if (community == null) {
+                throw new RuntimeException("所选社区不存在或未启用，请联系管理员");
+            }
+            if (communityCode != null && !communityCode.isBlank()
+                    && communityId != null && !Objects.equals(community.getCommunityId(), communityId)) {
+                // 前端传入的ID与code不一致时，以code定位结果为准，防止绑错社区。
+                communityId = community.getCommunityId();
+            } else {
+                communityId = community.getCommunityId();
+            }
+
             Merchant merchant = new Merchant();
             merchant.setUserId(user.getUserId());
             merchant.setMerchantName(registerDTO.getNickName() + "的店铺");
+            merchant.setCommunityId(communityId);
             merchant.setLicenseStatus(0); // 待审核
             merchant.setCreateTime(LocalDateTime.now());
             merchantMapper.insert(merchant);

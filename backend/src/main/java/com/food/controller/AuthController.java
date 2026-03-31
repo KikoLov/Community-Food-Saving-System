@@ -3,9 +3,11 @@ package com.food.controller;
 import com.food.common.Result;
 import com.food.dto.LoginDTO;
 import com.food.dto.RegisterDTO;
+import com.food.entity.Community;
 import com.food.entity.User;
 import com.food.exception.RateLimitException;
 import com.food.service.AuthService;
+import com.food.service.CommunityService;
 import com.food.service.RateLimitService;
 import jakarta.validation.Valid;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +25,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RateLimitService rateLimitService;
+    private final CommunityService communityService;
 
     /**
      * 登录
@@ -45,6 +48,14 @@ public class AuthController {
     public Result<Void> register(@Valid @RequestBody RegisterDTO registerDTO) {
         authService.register(registerDTO);
         return Result.success();
+    }
+
+    /**
+     * 注册页可用社区列表（公开）
+     */
+    @GetMapping("/communities")
+    public Result<java.util.List<Community>> getRegisterCommunities() {
+        return Result.success(communityService.getAllCommunities());
     }
 
     /**

@@ -13,6 +13,7 @@ import com.food.util.DemoTextNormalizeUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -24,8 +25,10 @@ import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 商品服务
@@ -45,6 +48,12 @@ public class ProductService {
      * 动态定价默认窗口（小时）：用于缺少创建时间时估算价格衰减区间
      */
     private static final long DEFAULT_PRICING_WINDOW_HOURS = 72;
+
+    @Value("${app.pricing.strategy:exponential}")
+    private String pricingStrategy;
+
+    @Value("${app.pricing.exponential.base-lambda:3.2}")
+    private double baseLambda;
 
     @PostConstruct
     public void ensureDynamicPricingColumn() {
@@ -311,11 +320,25 @@ public class ProductService {
                         .in(Product::getStatus, 0, 1)
                         .gt(Product::getStock, 0)
         );
+        Map<Long, BigDecimal> categoryFactorMap = categoryMapper.selectList(null).stream()
+                .filter(c -> c.getCategoryId() != null)
+                .collect(Collectors.toMap(
+                        Category::getCategoryId,
+                        c -> c.getCarbonFactor() != null ? BigDecimal.valueOf(c.getCarbonFactor()) : BigDecimal.valueOf(1.5),
+                        (a, b) -> a
+                ));
         int changed = 0;
         for (Product p : products) {
             BigDecimal original = safeMoney(p.getOriginalPrice());
             BigDecimal min = resolveMinPrice(p);
-            BigDecimal computed = calculateDynamicPrice(original, min, p.getCreateTime(), p.getExpireDatetime(), now);
+            BigDecimal computed = calculateDynamicPrice(
+                    original,
+                    min,
+                    p.getCreateTime(),
+                    p.getExpireDatetime(),
+                    now,
+                    categoryFactorMap.get(p.getCategoryId())
+            );
             if (p.getDiscountPrice() == null || p.getDiscountPrice().compareTo(computed) != 0 || p.getMinPrice() == null) {
                 Product patch = new Product();
                 patch.setProductId(p.getProductId());
@@ -343,7 +366,18 @@ public class ProductService {
         }
         product.setOriginalPrice(original);
         product.setMinPrice(min);
-        product.setDiscountPrice(calculateDynamicPrice(original, min, product.getCreateTime(), expireDatetime, LocalDateTime.now()));
+        Category category = product.getCategoryId() != null ? categoryMapper.selectById(product.getCategoryId()) : null;
+        BigDecimal categoryFactor = category != null && category.getCarbonFactor() != null
+                ? BigDecimal.valueOf(category.getCarbonFactor())
+                : null;
+        product.setDiscountPrice(calculateDynamicPrice(
+                original,
+                min,
+                product.getCreateTime(),
+                expireDatetime,
+                LocalDateTime.now(),
+                categoryFactor
+        ));
     }
 
     private BigDecimal resolveMinPrice(Product product) {
@@ -371,7 +405,8 @@ public class ProductService {
                                              BigDecimal min,
                                              LocalDateTime createTime,
                                              LocalDateTime expireTime,
-                                             LocalDateTime now) {
+                                             LocalDateTime now,
+                                             BigDecimal categoryFactor) {
         if (expireTime == null || !expireTime.isAfter(now)) {
             return min;
         }
@@ -382,7 +417,120 @@ public class ProductService {
         long remainSeconds = Math.max(0, Duration.between(now, expireTime).getSeconds());
         BigDecimal ratio = BigDecimal.valueOf(remainSeconds)
                 .divide(BigDecimal.valueOf(totalSeconds), 6, RoundingMode.HALF_UP);
-        BigDecimal result = min.add(original.subtract(min).multiply(ratio));
+        BigDecimal progress = BigDecimal.ONE.subtract(ratio); // 0~1，越接近到期越大
+
+        BigDecimal result;
+        if ("tiered".equalsIgnoreCase(pricingStrategy)) {
+            result = calculateTieredPrice(original, min, ratio);
+        } else if ("linear".equalsIgnoreCase(pricingStrategy)) {
+            result = min.add(original.subtract(min).multiply(ratio));
+        } else {
+            result = calculateExponentialPrice(original, min, progress, categoryFactor);
+        }
+        if (result.compareTo(original) > 0) {
+            result = original;
+        }
+        if (result.compareTo(min) < 0) {
+            result = min;
+        }
+        return result.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal calculateExponentialPrice(BigDecimal original,
+                                                 BigDecimal min,
+                                                 BigDecimal progress,
+                                                 BigDecimal categoryFactor) {
+        double factor = categoryFactor == null
+                ? 1.0
+                : Math.max(0.6, Math.min(1.8, categoryFactor.doubleValue() / 2.0));
+        double lambda = Math.max(0.2, baseLambda * factor);
+        double x = Math.max(0d, Math.min(1d, progress.doubleValue()));
+        double decay = Math.exp(-lambda * x);
+        BigDecimal span = original.subtract(min);
+        return min.add(span.multiply(BigDecimal.valueOf(decay)));
+    }
+
+    /**
+     * 阶梯折扣：按剩余保质期比例进行离散折扣，并受最低价约束。
+     */
+    private BigDecimal calculateTieredPrice(BigDecimal original, BigDecimal min, BigDecimal remainRatio) {
+        double r = Math.max(0d, Math.min(1d, remainRatio.doubleValue()));
+        BigDecimal discountRate;
+        if (r > 0.30d) {
+            discountRate = new BigDecimal("0.95");
+        } else if (r > 0.20d) {
+            discountRate = new BigDecimal("0.85");
+        } else if (r > 0.05d) {
+            discountRate = new BigDecimal("0.50");
+        } else {
+            discountRate = new BigDecimal("0.20");
+        }
+        BigDecimal tierPrice = original.multiply(discountRate);
+        if (tierPrice.compareTo(min) < 0) {
+            return min;
+        }
+        return tierPrice;
+    }
+
+    /**
+     * 管理端/论文辅助：生成价格曲线采样点。
+     */
+    public List<Map<String, Object>> buildPricingCurve(BigDecimal original,
+                                                       BigDecimal min,
+                                                       int totalHours,
+                                                       BigDecimal categoryFactor,
+                                                       String strategy) {
+        int safeHours = Math.max(1, totalHours);
+        LocalDateTime expire = LocalDateTime.now().plusHours(safeHours);
+        LocalDateTime start = LocalDateTime.now();
+        String useStrategy = (strategy == null || strategy.isBlank()) ? pricingStrategy : strategy;
+        java.util.ArrayList<Map<String, Object>> points = new java.util.ArrayList<>();
+        for (int h = 0; h <= safeHours; h++) {
+            LocalDateTime now = start.plusHours(h);
+            BigDecimal price = calculateDynamicPriceByStrategy(
+                    original,
+                    min,
+                    start,
+                    expire,
+                    now,
+                    categoryFactor,
+                    useStrategy
+            );
+            points.add(Map.of(
+                    "hour", h,
+                    "price", price
+            ));
+        }
+        return points;
+    }
+
+    private BigDecimal calculateDynamicPriceByStrategy(BigDecimal original,
+                                                       BigDecimal min,
+                                                       LocalDateTime createTime,
+                                                       LocalDateTime expireTime,
+                                                       LocalDateTime now,
+                                                       BigDecimal categoryFactor,
+                                                       String strategy) {
+        if (expireTime == null || !expireTime.isAfter(now)) {
+            return min;
+        }
+        LocalDateTime start = createTime != null && createTime.isBefore(expireTime)
+                ? createTime
+                : expireTime.minusHours(DEFAULT_PRICING_WINDOW_HOURS);
+        long totalSeconds = Math.max(1, Duration.between(start, expireTime).getSeconds());
+        long remainSeconds = Math.max(0, Duration.between(now, expireTime).getSeconds());
+        BigDecimal ratio = BigDecimal.valueOf(remainSeconds)
+                .divide(BigDecimal.valueOf(totalSeconds), 6, RoundingMode.HALF_UP);
+        BigDecimal progress = BigDecimal.ONE.subtract(ratio);
+
+        BigDecimal result;
+        if ("tiered".equalsIgnoreCase(strategy)) {
+            result = calculateTieredPrice(original, min, ratio);
+        } else if ("linear".equalsIgnoreCase(strategy)) {
+            result = min.add(original.subtract(min).multiply(ratio));
+        } else {
+            result = calculateExponentialPrice(original, min, progress, categoryFactor);
+        }
         if (result.compareTo(original) > 0) {
             result = original;
         }

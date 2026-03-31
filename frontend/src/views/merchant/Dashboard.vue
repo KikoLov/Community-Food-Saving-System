@@ -10,53 +10,33 @@
     <div class="row g-4 mb-4">
       <div class="col-md-3">
         <div class="card stat-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-box fa-2x text-primary"></i>
-            </div>
-            <div>
-              <p class="text-muted mb-1">商品总数</p>
-              <h3 class="mb-0">{{ stats.productCount || 0 }}</h3>
-            </div>
+          <div class="card-body">
+            <p class="text-muted mb-1">商品总数</p>
+            <h3 class="mb-0">{{ stats.productCount || 0 }}</h3>
           </div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card stat-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-list fa-2x text-warning"></i>
-            </div>
-            <div>
-              <p class="text-muted mb-1">待核销订单</p>
-              <h3 class="mb-0">{{ stats.pendingOrderCount || 0 }}</h3>
-            </div>
+          <div class="card-body">
+            <p class="text-muted mb-1">待核销订单</p>
+            <h3 class="mb-0">{{ stats.pendingOrderCount || 0 }}</h3>
           </div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card stat-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-calendar-day fa-2x text-info"></i>
-            </div>
-            <div>
-              <p class="text-muted mb-1">今日订单</p>
-              <h3 class="mb-0">{{ stats.todayOrderCount || 0 }}</h3>
-            </div>
+          <div class="card-body">
+            <p class="text-muted mb-1">今日订单</p>
+            <h3 class="mb-0">{{ stats.todayOrderCount || 0 }}</h3>
           </div>
         </div>
       </div>
       <div class="col-md-3">
         <div class="card stat-card">
-          <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-leaf fa-2x text-success"></i>
-            </div>
-            <div>
-              <p class="text-muted mb-1">累计碳减排(kg)</p>
-              <h3 class="mb-0">{{ stats.totalCarbonSaved || 0 }}</h3>
-            </div>
+          <div class="card-body">
+            <p class="text-muted mb-1">累计碳减排(kg)</p>
+            <h3 class="mb-0">{{ stats.totalCarbonSaved || 0 }}</h3>
           </div>
         </div>
       </div>
@@ -245,17 +225,6 @@ const shortDate = (dateStr) => {
   backdrop-filter: blur(8px);
   box-shadow: 0 10px 22px rgba(20, 84, 43, 0.08);
   border-radius: 16px;
-}
-
-.stat-icon {
-  width: 60px;
-  height: 60px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: linear-gradient(145deg, #f6fcf7, #e8f3ea);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 .verify-progress {
