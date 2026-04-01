@@ -354,6 +354,11 @@ public class MerchantController {
         }
         List<Order> orders = orderService.getMerchantOrders(merchant.getMerchantId());
         int productCount = productService.getMerchantProducts(merchant.getMerchantId(), 1, 2000).getRecords().size();
+        
+        // 计算盲盒商品数和销量
+        List<Product> allProducts = productService.getMerchantProducts(merchant.getMerchantId(), 1, 2000).getRecords();
+        long surpriseBagCount = allProducts.stream().filter(p -> p.getSurpriseBag() != null && p.getSurpriseBag() == 1).count();
+        long surpriseBagSales = orders.stream().filter(o -> o.getSurpriseBag() != null && o.getSurpriseBag() == 1).count();
 
         long pendingOrderCount = orders.stream().filter(o -> o.getOrderStatus() != null && o.getOrderStatus() == 0).count();
         long verifiedOrderCount = orders.stream().filter(o -> o.getOrderStatus() != null && o.getOrderStatus() == 1).count();
@@ -397,6 +402,8 @@ public class MerchantController {
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("productCount", productCount);
+        stats.put("surpriseBagCount", surpriseBagCount);
+        stats.put("surpriseBagSales", surpriseBagSales);
         stats.put("pendingOrderCount", pendingOrderCount);
         stats.put("verifiedOrderCount", verifiedOrderCount);
         stats.put("todayOrderCount", todayOrderCount);

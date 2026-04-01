@@ -98,4 +98,14 @@ public class ProductDTO {
      * 状态: 0-下架 1-上架
      */
     private Integer status;
+
+    /**
+     * 是否盲盒: false-普通商品 true-盲盒商品
+     */
+    private Boolean surpriseBag;
+
+    /**
+     * 盲盒名义价值（元）
+     */
+    private BigDecimal bagValue;
 }

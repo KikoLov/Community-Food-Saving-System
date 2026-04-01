@@ -66,6 +66,24 @@ public class ProductService {
             jdbcTemplate.execute("ALTER TABLE biz_product ADD COLUMN min_price DECIMAL(10,2) DEFAULT NULL COMMENT '最低底价'");
         }
         jdbcTemplate.execute("UPDATE biz_product SET min_price = discount_price WHERE min_price IS NULL");
+
+        Integer surpriseExists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM information_schema.COLUMNS " +
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'biz_product' AND COLUMN_NAME = 'surprise_bag'",
+                Integer.class
+        );
+        if (surpriseExists == null || surpriseExists == 0) {
+            jdbcTemplate.execute("ALTER TABLE biz_product ADD COLUMN surprise_bag TINYINT(1) DEFAULT 0 COMMENT '是否盲盒'");
+        }
+
+        Integer bagValueExists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(1) FROM information_schema.COLUMNS " +
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'biz_product' AND COLUMN_NAME = 'bag_value'",
+                Integer.class
+        );
+        if (bagValueExists == null || bagValueExists == 0) {
+            jdbcTemplate.execute("ALTER TABLE biz_product ADD COLUMN bag_value DECIMAL(10,2) DEFAULT NULL COMMENT '盲盒名义价值'");
+        }
     }
 
     /**
@@ -87,6 +105,19 @@ public class ProductService {
         // 转换DTO为实体
         Product product = new Product();
         BeanUtils.copyProperties(productDTO, product);
+        if (productDTO.getSurpriseBag() != null && productDTO.getSurpriseBag()) {
+            product.setSurpriseBag(1);
+            if (productDTO.getBagValue() == null || productDTO.getBagValue().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("盲盒名义价值必须大于0");
+            }
+            product.setBagValue(productDTO.getBagValue());
+            if (!product.getProductName().contains("盲盒")) {
+                product.setProductName("【盲盒】" + product.getProductName());
+            }
+        } else {
+            product.setSurpriseBag(0);
+            product.setBagValue(null);
+        }
         normalizeAndApplyDynamicPrice(product, productDTO.getExpireDatetime());
         if (product.getWarningHours() == null) {
             product.setWarningHours(24);
@@ -122,6 +153,19 @@ public class ProductService {
         }
 
         BeanUtils.copyProperties(productDTO, product);
+        if (productDTO.getSurpriseBag() != null && productDTO.getSurpriseBag()) {
+            product.setSurpriseBag(1);
+            if (productDTO.getBagValue() == null || productDTO.getBagValue().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+                throw new RuntimeException("盲盒名义价值必须大于0");
+            }
+            product.setBagValue(productDTO.getBagValue());
+            if (!product.getProductName().contains("盲盒")) {
+                product.setProductName("【盲盒】" + product.getProductName());
+            }
+        } else {
+            product.setSurpriseBag(0);
+            product.setBagValue(null);
+        }
         normalizeAndApplyDynamicPrice(product, productDTO.getExpireDatetime());
         product.setUpdateTime(LocalDateTime.now());
         productMapper.updateById(product);

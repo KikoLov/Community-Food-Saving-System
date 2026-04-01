@@ -96,6 +96,16 @@ public class Product extends BaseEntity {
     private Integer status;
 
     /**
+     * 是否盲盒: 0-普通商品 1-盲盒商品
+     */
+    private Integer surpriseBag;
+
+    /**
+     * 盲盒名义价值（元）
+     */
+    private java.math.BigDecimal bagValue;
+
+    /**
      * 冗余字段：分类名称（用于列表展示）
      */
     @TableField(exist = false)

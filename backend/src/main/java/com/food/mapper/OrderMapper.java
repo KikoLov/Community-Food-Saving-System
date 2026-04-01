@@ -21,8 +21,9 @@ public interface OrderMapper extends BaseMapper<Order> {
     @Select("""
         SELECT o.*, p.product_name, p.product_image
         FROM biz_order o
-        LEFT JOIN biz_product p ON o.product_id = p.product_id
+        LEFT JOIN biz_product p ON o.product_id = p.product_id AND (p.deleted IS NULL OR p.deleted = 0)
         WHERE o.user_id = #{userId}
+          AND (o.deleted IS NULL OR o.deleted = 0)
         ORDER BY o.create_time DESC
         """)
     List<Order> selectOrderListByUser(@Param("userId") Long userId);
@@ -35,6 +36,7 @@ public interface OrderMapper extends BaseMapper<Order> {
         FROM biz_order o
         LEFT JOIN sys_user u ON o.user_id = u.user_id
         WHERE o.merchant_id = #{merchantId}
+          AND (o.deleted IS NULL OR o.deleted = 0)
         ORDER BY o.create_time DESC
         """)
     List<Order> selectOrderListByMerchant(@Param("merchantId") Long merchantId);
@@ -46,7 +48,8 @@ public interface OrderMapper extends BaseMapper<Order> {
         SELECT o.*, u.user_name as userName, p.product_name, p.product_image
         FROM biz_order o
         LEFT JOIN sys_user u ON o.user_id = u.user_id
-        LEFT JOIN biz_product p ON o.product_id = p.product_id
+        LEFT JOIN biz_product p ON o.product_id = p.product_id AND (p.deleted IS NULL OR p.deleted = 0)
+        WHERE (o.deleted IS NULL OR o.deleted = 0)
         ORDER BY o.create_time DESC
         """)
     List<Order> selectAllOrders();
@@ -57,9 +60,10 @@ public interface OrderMapper extends BaseMapper<Order> {
     @Select("""
         SELECT o.*, p.product_name, p.product_image
         FROM biz_order o
-        LEFT JOIN biz_product p ON o.product_id = p.product_id
+        LEFT JOIN biz_product p ON o.product_id = p.product_id AND (p.deleted IS NULL OR p.deleted = 0)
         WHERE o.verify_code = #{verifyCode}
           AND o.order_status = 0
+          AND (o.deleted IS NULL OR o.deleted = 0)
         """)
     Order selectOrderByVerifyCode(@Param("verifyCode") String verifyCode);
 
@@ -69,8 +73,9 @@ public interface OrderMapper extends BaseMapper<Order> {
     @Select("""
         SELECT o.*, p.product_name, p.product_image
         FROM biz_order o
-        LEFT JOIN biz_product p ON o.product_id = p.product_id
+        LEFT JOIN biz_product p ON o.product_id = p.product_id AND (p.deleted IS NULL OR p.deleted = 0)
         WHERE o.verify_code = #{verifyCode}
+          AND (o.deleted IS NULL OR o.deleted = 0)
         LIMIT 1
         """)
     Order selectOrderByVerifyCodeAnyStatus(@Param("verifyCode") String verifyCode);
@@ -81,9 +86,10 @@ public interface OrderMapper extends BaseMapper<Order> {
     @Select("""
         SELECT o.*, p.product_name, p.product_image
         FROM biz_order o
-        LEFT JOIN biz_product p ON o.product_id = p.product_id
+        LEFT JOIN biz_product p ON o.product_id = p.product_id AND (p.deleted IS NULL OR p.deleted = 0)
         WHERE o.order_id = #{orderId}
           AND o.user_id = #{userId}
+          AND (o.deleted IS NULL OR o.deleted = 0)
         LIMIT 1
         """)
     Order selectOrderByIdAndUser(@Param("orderId") Long orderId, @Param("userId") Long userId);
@@ -129,4 +135,40 @@ public interface OrderMapper extends BaseMapper<Order> {
             WHERE merchant_id = #{merchantId} AND deleted = 0 AND order_status = 1
             """)
     Long countVerifiedByMerchant(@Param("merchantId") Long merchantId);
+
+    /**
+     * 用户已核销订单的碳减排合计（与 profile 不同步时以订单为准）
+     */
+    @Select("""
+            SELECT IFNULL(SUM(o.carbon_saved), 0)
+            FROM biz_order o
+            WHERE o.user_id = #{userId}
+              AND o.order_status = 1
+              AND (o.deleted IS NULL OR o.deleted = 0)
+            """)
+    BigDecimal sumCarbonSavedVerifiedByUser(@Param("userId") Long userId);
+
+    /**
+     * 用户已核销订单的商品件数合计（作为累计挽救食品 kg 的展示口径，与核销入账逻辑一致）
+     */
+    @Select("""
+            SELECT IFNULL(SUM(o.quantity), 0)
+            FROM biz_order o
+            WHERE o.user_id = #{userId}
+              AND o.order_status = 1
+              AND (o.deleted IS NULL OR o.deleted = 0)
+            """)
+    BigDecimal sumQuantityVerifiedByUser(@Param("userId") Long userId);
+
+    /**
+     * 已核销订单产生的碳积分合计：逐单 ROUND(实付*5,2) 再求和，与核销入账规则一致
+     */
+    @Select("""
+            SELECT IFNULL(SUM(ROUND(COALESCE(o.total_amount, 0) * 5, 2)), 0)
+            FROM biz_order o
+            WHERE o.user_id = #{userId}
+              AND o.order_status = 1
+              AND (o.deleted IS NULL OR o.deleted = 0)
+            """)
+    BigDecimal sumCarbonPointsEarnedFromVerifiedOrders(@Param("userId") Long userId);
 }

@@ -1,6 +1,11 @@
 <template>
   <div class="profile-page">
-    <h4 class="mb-4"><i class="fas fa-user me-2"></i>个人中心</h4>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
+      <h4 class="mb-0"><i class="fas fa-user me-2"></i>个人中心</h4>
+      <router-link to="/consumer/share-poster" class="btn btn-sm btn-outline-success">
+        <i class="fas fa-image me-1"></i>成就分享海报
+      </router-link>
+    </div>
 
     <div class="card mb-3">
       <div class="card-body">

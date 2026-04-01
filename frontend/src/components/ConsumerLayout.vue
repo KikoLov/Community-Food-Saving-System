@@ -33,6 +33,10 @@
             <span class="nav-icon">🌿</span>
             <span class="nav-text">低碳中心</span>
           </router-link>
+          <router-link to="/consumer/share-poster" class="navbar-item">
+            <span class="nav-icon">🖼️</span>
+            <span class="nav-text">成就海报</span>
+          </router-link>
           <router-link to="/consumer/gamification" class="navbar-item">
             <span class="nav-icon">🪙</span>
             <span class="nav-text">碳积分商城</span>

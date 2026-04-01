@@ -39,10 +39,10 @@
                 </td>
                 <td>
                   <button class="btn btn-outline-primary btn-sm me-1" @click="handleEdit(row)">
-                    <i class="fas fa-edit"></i>
+                    <i class="fas fa-edit me-1"></i>编辑
                   </button>
                   <button class="btn btn-outline-danger btn-sm" @click="handleDelete(row.categoryId)">
-                    <i class="fas fa-trash"></i>
+                    <i class="fas fa-trash me-1"></i>删除
                   </button>
                 </td>
               </tr>
@@ -61,12 +61,12 @@
     </div>
 
     <!-- Category Modal -->
-    <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true" ref="modalRef">
+    <div v-if="isCategoryModalOpen" class="modal show" style="display: block; background: rgba(0,0,0,0.5);" @click.self="isCategoryModalOpen = false">
       <div class="modal-dialog">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ dialogTitle }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" @click="isCategoryModalOpen = false"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="handleSubmit">
@@ -96,7 +96,7 @@
             </form>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-secondary" @click="isCategoryModalOpen = false">取消</button>
             <button type="button" class="btn btn-primary" @click="handleSubmit">
               <i class="fas fa-save me-1"></i>确定
             </button>
@@ -113,6 +113,7 @@ import { getCategoriesAdmin, addCategory, updateCategory, deleteCategory } from 
 import { Message } from '@/utils/message'
 
 const categories = ref([])
+const modalRef = ref(null)
 let categoryModal = null
 const dialogTitle = ref('添加分类')
 const isEdit = ref(false)
@@ -126,6 +127,8 @@ const categoryForm = reactive({
   status: 1,
   statusSwitch: true
 })
+
+const isCategoryModalOpen = ref(false)
 
 onMounted(async () => {
   await loadCategories()
@@ -144,21 +147,14 @@ const handleAdd = () => {
   dialogTitle.value = '添加分类'
   isEdit.value = false
   Object.assign(categoryForm, { categoryId: null, categoryName: '', categoryCode: '', carbonFactor: 1.5, sortOrder: 0, status: 1, statusSwitch: true })
-  openModal()
+  isCategoryModalOpen.value = true
 }
 
 const handleEdit = (row) => {
   dialogTitle.value = '编辑分类'
   isEdit.value = true
   Object.assign(categoryForm, row, { statusSwitch: row.status === 1 })
-  openModal()
-}
-
-const openModal = () => {
-  if (!categoryModal) {
-    categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'))
-  }
-  categoryModal.show()
+  isCategoryModalOpen.value = true
 }
 
 const handleDelete = async (id) => {
@@ -182,9 +178,7 @@ const handleSubmit = async () => {
       await addCategory(categoryForm)
       Message.success('添加成功')
     }
-    if (categoryModal) {
-      categoryModal.hide()
-    }
+    isCategoryModalOpen.value = false
     await loadCategories()
   } catch (error) {
     console.error(error)

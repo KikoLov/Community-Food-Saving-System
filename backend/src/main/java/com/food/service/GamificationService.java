@@ -31,6 +31,7 @@ public class GamificationService {
     private final CarbonRedemptionMapper carbonRedemptionMapper;
     private final JdbcTemplate jdbcTemplate;
     private final UserCouponService userCouponService;
+    private final CarbonService carbonService;
 
     private static final List<GamificationCatalogItemDTO> CATALOG = List.of(
             new GamificationCatalogItemDTO("virtual_tree", "TREE", "虚拟树苗", "在「我的森林」种下一棵演示树，为地球加一点绿", new BigDecimal("30"), "🌳"),
@@ -73,6 +74,8 @@ public class GamificationService {
     }
 
     public GamificationStateDTO getState(Long userId) {
+        // 与低碳中心一致：先按已核销订单 + 兑换流水重算并写回 profile，避免只进商城时余额一直为 0
+        carbonService.getUserCarbonInfo(userId);
         UserProfile profile = ensureProfile(userId);
         BigDecimal coins = profile.getCarbonPoints() != null ? profile.getCarbonPoints() : BigDecimal.ZERO;
         long trees = carbonRedemptionMapper.countTreesByUser(userId);
@@ -135,6 +138,7 @@ public class GamificationService {
             }
         }
 
+        carbonService.getUserCarbonInfo(userId);
         UserProfile profile = ensureProfile(userId);
         BigDecimal balance = profile.getCarbonPoints() != null ? profile.getCarbonPoints() : BigDecimal.ZERO;
         if (balance.compareTo(item.getCost()) < 0) {

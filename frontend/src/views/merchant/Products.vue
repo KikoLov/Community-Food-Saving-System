@@ -1,10 +1,23 @@
 <template>
   <div class="products-page">
+    <div class="mb-3">
+      <button class="btn btn-success" @click="handleAdd">
+        <i class="fas fa-plus me-2"></i>添加商品
+      </button>
+    </div>
+
     <div class="batch-toolbar mb-3">
       <div class="left">
         <span class="selected-tip">已选 {{ selectedIds.length }} 项</span>
+        <span v-if="surpriseBagCount > 0" style="margin-left: 20px; color: #d63384; font-weight: 600;">
+          盲盒商品: {{ surpriseBagCount }} 件
+        </span>
       </div>
       <div class="right">
+        <label class="d-flex align-center me-3" style="gap: 6px; cursor: pointer;">
+          <input type="checkbox" v-model="surpriseBagFilter">
+          <span>仅看盲盒</span>
+        </label>
         <button class="btn btn-sm btn-outline-success" :disabled="selectedIds.length === 0" @click="handleBatchStatus(1)">
           批量上架
         </button>
@@ -35,11 +48,11 @@
                 <th>库存</th>
                 <th>过期时间</th>
                 <th>状态</th>
-                <th>操作</th>
+                <th class="col-actions">操作</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="row in products" :key="row.productId">
+              <tr v-for="row in filteredProducts" :key="row.productId">
                 <td>
                   <input
                     type="checkbox"
@@ -68,32 +81,40 @@
                     {{ getStatusText(row.status) }}
                   </span>
                 </td>
-                <td>
-                  <button
-                    v-if="row.status !== 1"
-                    class="btn btn-outline-success btn-sm me-1"
-                    title="上架"
-                    @click="handleSingleStatus(row.productId, 1)"
-                  >
-                    <i class="fas fa-arrow-up"></i>
-                  </button>
-                  <button
-                    v-else
-                    class="btn btn-outline-warning btn-sm me-1"
-                    title="下架"
-                    @click="handleSingleStatus(row.productId, 0)"
-                  >
-                    <i class="fas fa-arrow-down"></i>
-                  </button>
-                  <button class="btn btn-outline-primary btn-sm me-1" @click="handleEdit(row)">
-                    <i class="fas fa-edit"></i>
-                  </button>
-                  <button class="btn btn-outline-danger btn-sm" @click="handleDelete(row.productId)">
-                    <i class="fas fa-trash"></i>
-                  </button>
+                <td class="merchant-product-actions">
+                  <div class="action-btn-group">
+                    <button
+                      v-if="row.status !== 1"
+                      type="button"
+                      class="btn btn-outline-success action-btn"
+                      title="上架"
+                      @click="handleSingleStatus(row.productId, 1)"
+                    >
+                      <i class="fas fa-arrow-up" aria-hidden="true"></i>
+                      <span class="action-label">上架</span>
+                    </button>
+                    <button
+                      v-else
+                      type="button"
+                      class="btn btn-outline-warning action-btn"
+                      title="下架"
+                      @click="handleSingleStatus(row.productId, 0)"
+                    >
+                      <i class="fas fa-arrow-down" aria-hidden="true"></i>
+                      <span class="action-label">下架</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-primary action-btn" title="编辑" @click="handleEdit(row)">
+                      <i class="fas fa-edit" aria-hidden="true"></i>
+                      <span class="action-label">编辑</span>
+                    </button>
+                    <button type="button" class="btn btn-outline-danger action-btn" title="删除" @click="handleDelete(row.productId)">
+                      <i class="fas fa-trash" aria-hidden="true"></i>
+                      <span class="action-label">删除</span>
+                    </button>
+                  </div>
                 </td>
               </tr>
-              <tr v-if="products.length === 0">
+              <tr v-if="filteredProducts.length === 0">
                 <td colspan="7" class="text-center py-4">
                   <i class="fas fa-box-open fa-3x text-muted mb-3 d-block"></i>
                   <p class="text-muted">暂无商品</p>
@@ -105,9 +126,10 @@
       </div>
     </div>
 
-    <!-- Product Modal -->
-    <div class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg">
+    <!-- 挂到 body，避免商户布局 main-content 的 z-index 堆叠上下文导致遮罩盖住弹窗、无法点击 -->
+    <Teleport to="body">
+    <div class="modal fade merchant-product-modal" id="productModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ dialogTitle }}</h5>
@@ -163,7 +185,8 @@
                 </div>
                 <div class="col-md-3 mb-3">
                   <label class="form-label">库存 *</label>
-                  <input type="number" class="form-control" v-model="productForm.stock" min="0">
+                  <input type="number" class="form-control" v-model.number="productForm.stock" min="1" step="1">
+                  <div class="form-text">须 ≥ 1（后端要求为正整数）</div>
                 </div>
               </div>
               <div class="row">
@@ -180,6 +203,15 @@
                 <label class="form-label">预警小时数</label>
                 <input type="number" class="form-control" v-model="productForm.warningHours" min="1">
               </div>
+              <div class="mb-3 form-check form-switch">
+                <input class="form-check-input" type="checkbox" v-model="productForm.surpriseBag" id="surpriseBagSwitch">
+                <label class="form-check-label" for="surpriseBagSwitch">启用“盲盒模式”</label>
+              </div>
+              <div v-if="productForm.surpriseBag" class="mb-3">
+                <label class="form-label">盲盒名义价值（元） *</label>
+                <input type="number" class="form-control" v-model.number="productForm.bagValue" min="0" step="0.01" required>
+                <div class="form-text">通常设定为大于实际折扣价的价值（如50元），可提升吸引力。</div>
+              </div>
               <div class="mb-3">
                 <label class="form-label">商品描述</label>
                 <textarea class="form-control" v-model="productForm.description" rows="3"></textarea>
@@ -194,11 +226,13 @@
         </div>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
+import { Modal } from 'bootstrap'
 import {
   getMerchantProducts,
   addProduct,
@@ -220,6 +254,7 @@ const userStore = useUserStore()
 const products = ref([])
 const selectedIds = ref([])
 const categories = ref([])
+const surpriseBagFilter = ref(false)
 let productModal = null
 const dialogTitle = ref('添加商品')
 const isEdit = ref(false)
@@ -232,7 +267,9 @@ const productForm = reactive({
   originalPrice: 0,
   discountPrice: 0,
   minPrice: 0,
-  stock: 0,
+  bagValue: 0,
+  surpriseBag: false,
+  stock: 1,
   expireDate: '',
   expireDatetime: '',
   warningHours: 24,
@@ -246,6 +283,22 @@ onMounted(async () => {
   await loadCategories()
 })
 
+onUnmounted(() => {
+  if (productModal) {
+    try {
+      productModal.hide()
+    } catch (e) {
+      /* ignore */
+    }
+    productModal.dispose?.()
+    productModal = null
+  }
+  document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove())
+  document.body.classList.remove('modal-open')
+  document.body.style.removeProperty('overflow')
+  document.body.style.removeProperty('padding-right')
+})
+
 const loadProducts = async () => {
   try {
     const res = await getMerchantProducts(1, 100)
@@ -256,8 +309,17 @@ const loadProducts = async () => {
   }
 }
 
+const filteredProducts = computed(() => {
+  if (!surpriseBagFilter.value) return products.value
+  return products.value.filter(p => p.surpriseBag === 1 || p.surpriseBag === true)
+})
+
+const surpriseBagCount = computed(() => {
+  return products.value.filter(p => p.surpriseBag === 1 || p.surpriseBag === true).length
+})
+
 const isAllSelected = computed(() => {
-  return products.value.length > 0 && selectedIds.value.length === products.value.length
+  return filteredProducts.value.length > 0 && selectedIds.value.length === filteredProducts.value.length
 })
 
 const toggleSelect = (id, checked) => {
@@ -270,7 +332,7 @@ const toggleSelect = (id, checked) => {
 
 const toggleSelectAll = (checked) => {
   if (checked) {
-    selectedIds.value = products.value.map(x => x.productId)
+    selectedIds.value = filteredProducts.value.map(x => x.productId)
   } else {
     selectedIds.value = []
   }
@@ -307,11 +369,38 @@ const getStatusText = (status) => {
   return texts[status] || '未知'
 }
 
+const handleAdd = () => {
+  dialogTitle.value = '添加商品'
+  isEdit.value = false
+  // 清空表单
+  Object.assign(productForm, {
+    productId: null,
+    productName: '',
+    categoryId: null,
+    originalPrice: 0,
+    discountPrice: 0,
+    minPrice: 0,
+    bagValue: 0,
+    surpriseBag: false,
+    stock: 1,
+    expireDate: '',
+    expireDatetime: '',
+    warningHours: 24,
+    description: '',
+    status: 1,
+    productImage: ''
+  })
+  productImagePreview.value = buildNameBasedProductImage({}, 120)
+  openModal()
+}
+
 const handleEdit = (row) => {
   dialogTitle.value = '编辑商品'
   isEdit.value = true
   Object.assign(productForm, row, {
     minPrice: row.minPrice ?? row.discountPrice ?? 0,
+    bagValue: row.bagValue ?? 0,
+    surpriseBag: Boolean(row.surpriseBag),
     expireDate: row.expireDate,
     expireDatetime: row.expireDatetime ? row.expireDatetime.substring(11, 19) : ''
   })
@@ -398,8 +487,13 @@ const handleRemoveImage = async () => {
 }
 
 const openModal = () => {
+  const el = document.getElementById('productModal')
+  if (!el) {
+    Message.error('无法打开弹窗，请刷新页面重试')
+    return
+  }
   if (!productModal) {
-    productModal = new bootstrap.Modal(document.getElementById('productModal'))
+    productModal = new Modal(el, { backdrop: true, keyboard: true, focus: true })
   }
   productModal.show()
 }
@@ -482,11 +576,30 @@ const handleSubmit = async (targetStatus = 1) => {
       Message.warning('最低底价不能高于原价')
       return
     }
+    const stockNum = Number(productForm.stock)
+    if (!Number.isFinite(stockNum) || stockNum < 1) {
+      Message.warning('库存须为大于等于 1 的整数')
+      return
+    }
+    if (productForm.surpriseBag && (!productForm.bagValue || Number(productForm.bagValue) <= 0)) {
+      Message.warning('盲盒名义价值必须大于0')
+      return
+    }
+    const timePart = String(productForm.expireDatetime || '').trim().slice(0, 5)
+    if (!timePart || timePart.length < 4) {
+      Message.warning('请填写有效的过期时间（时:分）')
+      return
+    }
     const payload = {
       ...productForm,
+      stock: Math.floor(stockNum),
+      originalPrice: original,
+      minPrice: min,
       status: targetStatus,
+      surpriseBag: Boolean(productForm.surpriseBag),
+      bagValue: productForm.surpriseBag ? Number(productForm.bagValue) : null,
       // 后端要求 LocalDateTime；将 date + time 组装为 ISO 本地时间字符串
-      expireDatetime: `${productForm.expireDate}T${String(productForm.expireDatetime).slice(0, 5)}:00`
+      expireDatetime: `${productForm.expireDate}T${timePart}:00`
     }
     if (isEdit.value) {
       await updateProduct(productForm.productId, payload)
@@ -572,5 +685,42 @@ const autoPricingPreview = computed(() => {
 .btn-primary:hover {
   background-color: #3b47b8;
   border-color: #3b47b8;
+}
+
+/* 操作列：避免被表格压缩成极小图标按钮 */
+.products-page .col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.products-page .merchant-product-actions {
+  vertical-align: middle;
+  min-width: 240px;
+}
+
+.products-page .action-btn-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.products-page .action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9375rem;
+  line-height: 1.25;
+  min-height: 40px;
+}
+
+.products-page .action-btn i {
+  font-size: 1rem;
+}
+
+.products-page .action-label {
+  font-weight: 500;
 }
 </style>

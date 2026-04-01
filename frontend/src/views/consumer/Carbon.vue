@@ -2,17 +2,41 @@
   <div class="carbon-page">
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4">
       <h4 class="mb-0"><i class="fas fa-leaf me-2"></i>低碳中心</h4>
-      <router-link to="/consumer/gamification" class="btn btn-sm btn-outline-success">
-        <i class="fas fa-store me-1"></i>碳积分商城（兑换树 / 徽章 / 券）
-      </router-link>
+      <div class="d-flex flex-wrap gap-2">
+        <router-link to="/consumer/share-poster" class="btn btn-sm btn-success">
+          <i class="fas fa-image me-1"></i>生成成就海报
+        </router-link>
+        <router-link to="/consumer/gamification" class="btn btn-sm btn-outline-success">
+          <i class="fas fa-store me-1"></i>碳积分商城（兑换树 / 徽章 / 券）
+        </router-link>
+      </div>
     </div>
 
     <div class="row g-4 mb-4">
       <div class="col-md-4">
         <div class="card stat-card">
           <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-coins fa-2x text-warning"></i>
+            <div class="stat-icon stat-icon--points me-4" aria-hidden="true">
+              <svg class="stat-illustration" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="statPtsCoin" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#fff8e1" />
+                    <stop offset="55%" stop-color="#ffca28" />
+                    <stop offset="100%" stop-color="#f9a825" />
+                  </linearGradient>
+                  <linearGradient id="statPtsShine" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
+                    <stop offset="45%" stop-color="#ffffff" stop-opacity="0" />
+                  </linearGradient>
+                </defs>
+                <ellipse cx="32" cy="52" rx="22" ry="7" fill="#000" opacity="0.07" />
+                <ellipse cx="32" cy="40" rx="17" ry="5" fill="#f57f17" opacity="0.88" />
+                <ellipse cx="32" cy="34" rx="17" ry="5" fill="#ffb300" />
+                <ellipse cx="32" cy="28" rx="17" ry="5" fill="url(#statPtsCoin)" stroke="#e65100" stroke-width="0.8" />
+                <circle cx="32" cy="18" r="11" fill="url(#statPtsCoin)" stroke="#e65100" stroke-width="1.1" />
+                <ellipse cx="26" cy="14" rx="7" ry="4" fill="url(#statPtsShine)" transform="rotate(-25 26 14)" />
+                <path d="M32 11v14M25 18h14" stroke="#bf360c" stroke-width="1.2" stroke-linecap="round" opacity="0.35" />
+              </svg>
             </div>
             <div>
               <p class="text-muted mb-1">碳积分 <small class="text-muted">(Carbon Coins)</small></p>
@@ -24,12 +48,35 @@
       <div class="col-md-4">
         <div class="card stat-card">
           <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-chart-line fa-2x text-success"></i>
+            <div class="stat-icon stat-icon--carbon me-4" aria-hidden="true">
+              <svg class="stat-illustration" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="statLeafBody" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#1b5e20" />
+                    <stop offset="50%" stop-color="#388e3c" />
+                    <stop offset="100%" stop-color="#81c784" />
+                  </linearGradient>
+                  <radialGradient id="statLeafGlow" cx="35%" cy="30%" r="55%">
+                    <stop offset="0%" stop-color="#c8e6c9" stop-opacity="0.9" />
+                    <stop offset="100%" stop-color="#81c784" stop-opacity="0" />
+                  </radialGradient>
+                </defs>
+                <circle cx="32" cy="32" r="26" fill="url(#statLeafGlow)" opacity="0.65" />
+                <path
+                  d="M32 10c14 2 22 14 20 26-2 12-12 20-20 22-8-2-18-10-20-22-2-12 6-24 20-26z"
+                  fill="url(#statLeafBody)"
+                  stroke="#2e7d32"
+                  stroke-width="0.9"
+                />
+                <path d="M32 16v30" stroke="#1b5e20" stroke-width="1.4" stroke-linecap="round" opacity="0.35" />
+                <path d="M32 22c6 4 10 10 10 16M32 26c-5 3-9 8-10 14" stroke="#a5d6a7" stroke-width="1.1" stroke-linecap="round" opacity="0.7" />
+                <circle cx="44" cy="18" r="4.2" fill="#e8f5e9" stroke="#43a047" stroke-width="0.85" opacity="0.95" />
+                <circle cx="50" cy="26" r="3.2" fill="#c8e6c9" stroke="#66bb6a" stroke-width="0.75" opacity="0.92" />
+              </svg>
             </div>
             <div>
-              <p class="text-muted mb-1">累计碳减排(kg)</p>
-              <h3 class="mb-0">{{ profile?.totalCarbonSaved || 0 }}</h3>
+              <p class="text-muted mb-1">累计碳减排 (g CO₂)</p>
+              <h3 class="mb-0">{{ carbonKgToGramsStr(profile?.totalCarbonSaved) }}</h3>
             </div>
           </div>
         </div>
@@ -37,8 +84,32 @@
       <div class="col-md-4">
         <div class="card stat-card">
           <div class="card-body d-flex align-items-center">
-            <div class="stat-icon me-4">
-              <i class="fas fa-box fa-2x text-primary"></i>
+            <div class="stat-icon stat-icon--food me-4" aria-hidden="true">
+              <svg class="stat-illustration" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="statBagGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stop-color="#e3f2fd" />
+                    <stop offset="100%" stop-color="#64b5f6" />
+                  </linearGradient>
+                  <linearGradient id="statAppleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#ffcc80" />
+                    <stop offset="100%" stop-color="#ef6c00" />
+                  </linearGradient>
+                </defs>
+                <path
+                  d="M18 24h28l-3 32H21L18 24z"
+                  fill="url(#statBagGrad)"
+                  stroke="#1976d2"
+                  stroke-width="1.1"
+                  stroke-linejoin="round"
+                />
+                <path d="M18 24l14-8 14 8" fill="none" stroke="#1565c0" stroke-width="1.2" stroke-linecap="round" />
+                <path d="M32 16v-4" stroke="#5d4037" stroke-width="1.6" stroke-linecap="round" />
+                <ellipse cx="32" cy="14" rx="5" ry="2.2" fill="#66bb6a" stroke="#2e7d32" stroke-width="0.6" />
+                <circle cx="32" cy="38" r="9" fill="url(#statAppleGrad)" stroke="#e65100" stroke-width="0.9" />
+                <path d="M32 30c-2 4-2 8 0 12" stroke="#fff3e0" stroke-width="1.2" stroke-linecap="round" opacity="0.55" />
+                <path d="M26 44c3 2 7 2 12 0" fill="none" stroke="#bf360c" stroke-width="0.9" stroke-linecap="round" opacity="0.4" />
+              </svg>
             </div>
             <div>
               <p class="text-muted mb-1">累计挽救食品(kg)</p>
@@ -57,7 +128,7 @@
             <p class="mb-1 text-muted">已核销订单（推断）</p>
             <h3 class="mb-2">{{ verifiedCount }}</h3>
             <p class="mb-1 text-muted">单次平均减碳</p>
-            <h5 class="mb-0 text-success">{{ avgCarbonPerAction }} kg</h5>
+            <h5 class="mb-0 text-success">{{ carbonKgToGramsStr(avgCarbonPerActionKg) }} g</h5>
           </div>
         </div>
       </div>
@@ -97,7 +168,7 @@
               <tr>
                 <th>类型</th>
                 <th>积分</th>
-                <th>碳减排(kg)</th>
+                <th>碳减排 (g)</th>
                 <th>描述</th>
                 <th>时间</th>
               </tr>
@@ -114,7 +185,7 @@
                     {{ log.logType === 1 ? '+' : '-' }}{{ log.carbonPoints }}
                   </span>
                 </td>
-                <td>{{ log.carbonSaved }}</td>
+                <td>{{ carbonKgToGramsStr(log.carbonSaved) }}</td>
                 <td>{{ log.description }}</td>
                 <td><small>{{ formatDateTime(log.createTime) }}</small></td>
               </tr>
@@ -140,14 +211,25 @@ const profile = ref(null)
 const logs = ref([])
 
 const verifiedCount = computed(() => logs.value.filter(x => x.logType === 1).length)
-const avgCarbonPerAction = computed(() => {
+/** 接口 carbonSaved 为 kg，单次平均减碳（kg） */
+const avgCarbonPerActionKg = computed(() => {
   const c = verifiedCount.value
-  if (!c) return '0.0000'
+  if (!c) return 0
   const total = logs.value
     .filter(x => x.logType === 1)
     .reduce((sum, x) => sum + Number(x.carbonSaved || 0), 0)
-  return (total / c).toFixed(4)
+  return total / c
 })
+
+/** 与成就海报一致：kg CO₂ → g 展示 */
+function carbonKgToGramsStr(kg) {
+  const raw = (Number(kg) || 0) * 1000
+  if (!(raw > 0)) return '0'
+  const g = Number(raw.toPrecision(10))
+  if (g >= 100) return Math.round(g).toLocaleString('zh-CN')
+  if (g >= 1) return (Math.round(g * 10) / 10).toLocaleString('zh-CN')
+  return (Math.round(g * 1000) / 1000).toLocaleString('zh-CN')
+}
 
 const trend7d = computed(() => {
   const result = []
@@ -245,14 +327,55 @@ const shortDate = (dateStr) => {
 }
 
 .stat-icon {
-  width: 60px;
-  height: 60px;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.65);
   background: linear-gradient(145deg, #f6fcf7, #e8f3ea);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+.stat-icon .stat-illustration {
+  width: 46px;
+  height: 46px;
+  display: block;
+}
+
+/* 碳积分：暖色底 + 金币叠放 */
+.stat-icon--points {
+  background:
+    radial-gradient(circle at 28% 20%, rgba(255, 213, 79, 0.45) 0%, transparent 42%),
+    radial-gradient(circle at 78% 78%, rgba(255, 183, 77, 0.22) 0%, transparent 45%),
+    linear-gradient(155deg, #fffdf7, #ffe8b0);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 10px rgba(245, 127, 23, 0.14);
+}
+
+/* 累计碳减排：绿色底 + 叶片意象 */
+.stat-icon--carbon {
+  background:
+    radial-gradient(circle at 72% 22%, rgba(165, 214, 167, 0.5) 0%, transparent 40%),
+    radial-gradient(circle at 22% 70%, rgba(102, 187, 106, 0.2) 0%, transparent 48%),
+    linear-gradient(155deg, #f4fbf5, #dcedc8);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    0 3px 10px rgba(46, 125, 50, 0.12);
+}
+
+/* 累计挽救食品：冷色底 + 购物袋与果实 */
+.stat-icon--food {
+  background:
+    radial-gradient(circle at 50% 28%, rgba(100, 181, 246, 0.35) 0%, transparent 46%),
+    radial-gradient(circle at 20% 82%, rgba(129, 212, 250, 0.2) 0%, transparent 42%),
+    linear-gradient(155deg, #f8fcff, #e3f2fd);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 3px 10px rgba(25, 118, 210, 0.11);
 }
 
 .card-header {

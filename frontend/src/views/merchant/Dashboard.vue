@@ -19,6 +19,15 @@
       <div class="col-md-3">
         <div class="card stat-card">
           <div class="card-body">
+            <p class="text-muted mb-1">盲盒商品</p>
+            <h3 class="mb-0" style="color: #d63384;">{{ stats.surpriseBagCount || 0 }}</h3>
+            <small class="text-muted">销量: {{ stats.surpriseBagSales || 0 }}</small>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="card stat-card">
+          <div class="card-body">
             <p class="text-muted mb-1">待核销订单</p>
             <h3 class="mb-0">{{ stats.pendingOrderCount || 0 }}</h3>
           </div>
@@ -32,6 +41,9 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="row g-4 mb-4">
       <div class="col-md-3">
         <div class="card stat-card">
           <div class="card-body">

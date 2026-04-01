@@ -10,7 +10,7 @@
             v-model.trim="keyword"
             type="text"
             class="search-input"
-            placeholder="搜索订单号/商品名/核销码"
+            placeholder="搜索订单号/商家/商品名/核销码"
           >
         </div>
       </div>
@@ -63,6 +63,10 @@
               <tr v-for="row in pagedOrders" :key="row.orderId">
                 <td>
                   <p class="mb-1">订单号: {{ row.orderNo }}</p>
+                  <p class="mb-1 order-merchant-line">
+                    <i class="fas fa-store me-1 text-success" aria-hidden="true"></i>
+                    <span class="fw-semibold text-dark">{{ row.merchantName || '未知商家' }}</span>
+                  </p>
                   <small class="text-muted">{{ row.productName }} x {{ row.quantity }}</small>
                 </td>
                 <td><span class="fw-bold text-danger">¥{{ row.totalAmount }}</span></td>
@@ -137,6 +141,7 @@
         </div>
         <div class="detail-grid">
           <div><span class="k">订单号</span><span class="v">{{ detailOrder.orderNo }}</span></div>
+          <div><span class="k">商家</span><span class="v">{{ detailOrder.merchantName || '未知商家' }}</span></div>
           <div><span class="k">状态</span><span class="v">{{ getStatusText(detailOrder.orderStatus) }}</span></div>
           <div><span class="k">商品</span><span class="v">{{ detailOrder.productName }} x{{ detailOrder.quantity }}</span></div>
           <div><span class="k">金额</span><span class="v text-danger">¥{{ detailOrder.totalAmount }}</span></div>
@@ -247,6 +252,7 @@ const filteredOrders = computed(() => {
   const q = keyword.value.toLowerCase()
   return data.filter(o =>
     String(o.orderNo || '').toLowerCase().includes(q) ||
+    String(o.merchantName || '').toLowerCase().includes(q) ||
     String(o.productName || '').toLowerCase().includes(q) ||
     String(o.verifyCode || '').toLowerCase().includes(q)
   )
@@ -339,6 +345,7 @@ const printDetail = () => {
     </head><body>
       <h2>订单凭证</h2>
       <p>订单号：${o.orderNo || ''}</p>
+      <p>商家：${o.merchantName || '未知商家'}</p>
       <p>状态：${getStatusText(o.orderStatus)}</p>
       <p>商品：${o.productName || ''} x${o.quantity || 0}</p>
       ${Number(o.discountAmount || 0) > 0 ? `<p>优惠前：¥${o.originalAmount || 0}，优惠：-¥${o.discountAmount}，券码：${o.couponCode || '-'}</p>` : ''}
@@ -430,9 +437,10 @@ const submitReview = async () => {
 
 const exportCsv = () => {
   if (!filteredOrders.value.length) return
-  const header = ['订单号', '商品信息', '金额', '核销码', '状态', '碳减排', '下单时间']
+  const header = ['订单号', '商家', '商品信息', '金额', '核销码', '状态', '碳减排', '下单时间']
   const rows = filteredOrders.value.map(row => [
     row.orderNo,
+    row.merchantName || '未知商家',
     `${row.productName} x${row.quantity}`,
     row.totalAmount,
     row.verifyCode,
@@ -456,6 +464,11 @@ const exportCsv = () => {
 <style scoped>
 .orders-page {
   padding: 20px 0;
+}
+
+.order-merchant-line {
+  font-size: 0.9rem;
+  line-height: 1.35;
 }
 
 .orders-toolbar {

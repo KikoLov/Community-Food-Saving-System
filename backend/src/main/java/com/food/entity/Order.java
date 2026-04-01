@@ -115,4 +115,14 @@ public class Order extends BaseEntity {
      */
     @TableField(exist = false)
     private String merchantName;
+
+    /**
+     * 是否盲盒商品: 0-普通商品 1-盲盒商品
+     */
+    private Integer surpriseBag;
+
+    /**
+     * 盲盒名义价值（元）
+     */
+    private java.math.BigDecimal bagValue;
 }

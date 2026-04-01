@@ -28,6 +28,7 @@ public class OrderService {
 
     private final OrderMapper orderMapper;
     private final ProductMapper productMapper;
+    private final MerchantMapper merchantMapper;
     private final UserProfileMapper userProfileMapper;
     private final CarbonLogMapper carbonLogMapper;
     private final ProductService productService;
@@ -110,6 +111,8 @@ public class OrderService {
             order.setCouponCode(couponSnapshot);
             order.setVerifyCode(generateVerifyCode());
             order.setOrderStatus(0); // 待核销
+            order.setSurpriseBag(product.getSurpriseBag() != null ? product.getSurpriseBag() : 0);
+            order.setBagValue(product.getBagValue());
             order.setCreateTime(LocalDateTime.now());
 
             // 计算碳减排量 (使用默认碳因子 1.5)
@@ -166,9 +169,14 @@ public class OrderService {
                     .multiply(new BigDecimal("5"))
                     .setScale(2, RoundingMode.HALF_UP);
 
-            userProfile.setCarbonPoints(userProfile.getCarbonPoints().add(carbonPoints));
-            userProfile.setTotalCarbonSaved(userProfile.getTotalCarbonSaved().add(order.getCarbonSaved()));
-            userProfile.setTotalFoodSaved(userProfile.getTotalFoodSaved().add(new BigDecimal(order.getQuantity())));
+            BigDecimal curPoints = userProfile.getCarbonPoints() != null ? userProfile.getCarbonPoints() : BigDecimal.ZERO;
+            BigDecimal curCarbon = userProfile.getTotalCarbonSaved() != null ? userProfile.getTotalCarbonSaved() : BigDecimal.ZERO;
+            BigDecimal curFood = userProfile.getTotalFoodSaved() != null ? userProfile.getTotalFoodSaved() : BigDecimal.ZERO;
+            BigDecimal orderCarbon = order.getCarbonSaved() != null ? order.getCarbonSaved() : BigDecimal.ZERO;
+
+            userProfile.setCarbonPoints(curPoints.add(carbonPoints));
+            userProfile.setTotalCarbonSaved(curCarbon.add(orderCarbon));
+            userProfile.setTotalFoodSaved(curFood.add(new BigDecimal(order.getQuantity())));
             userProfile.setUpdateTime(LocalDateTime.now());
             userProfileMapper.updateById(userProfile);
 
@@ -312,40 +320,53 @@ public class OrderService {
         if (order == null) {
             return null;
         }
+        attachMerchantName(order);
         boolean missingName = order.getProductName() == null || order.getProductName().isBlank();
         boolean missingImage = order.getProductImage() == null || order.getProductImage().isBlank();
-        if (!missingName && !missingImage) {
-            return order;
-        }
-        Product product = productMapper.selectById(order.getProductId());
-        boolean changed = false;
-        if (product != null) {
-            if (missingName && product.getProductName() != null && !product.getProductName().isBlank()) {
-                order.setProductName(product.getProductName());
-                changed = true;
+        if (missingName || missingImage) {
+            Product product = productMapper.selectById(order.getProductId());
+            boolean changed = false;
+            if (product != null) {
+                if (missingName && product.getProductName() != null && !product.getProductName().isBlank()) {
+                    order.setProductName(product.getProductName());
+                    changed = true;
+                }
+                if (missingImage && product.getProductImage() != null && !product.getProductImage().isBlank()) {
+                    order.setProductImage(product.getProductImage());
+                    changed = true;
+                }
             }
-            if (missingImage && product.getProductImage() != null && !product.getProductImage().isBlank()) {
-                order.setProductImage(product.getProductImage());
-                changed = true;
+            if (missingImage && (order.getProductImage() == null || order.getProductImage().isBlank())) {
+                String name = product != null && product.getProductName() != null && !product.getProductName().isBlank()
+                        ? product.getProductName()
+                        : order.getProductName();
+                String desc = product != null ? product.getDescription() : null;
+                // 仅用于返回给前端展示，避免把超长 DataURI 写入数据库导致截断报错
+                order.setProductImage(buildAiLikePlaceholder(name, desc));
             }
-        }
-        if (missingImage && (order.getProductImage() == null || order.getProductImage().isBlank())) {
-            String name = product != null && product.getProductName() != null && !product.getProductName().isBlank()
-                    ? product.getProductName()
-                    : order.getProductName();
-            String desc = product != null ? product.getDescription() : null;
-            // 仅用于返回给前端展示，避免把超长 DataURI 写入数据库导致截断报错
-            order.setProductImage(buildAiLikePlaceholder(name, desc));
-        }
-        if (changed) {
-            Order patch = new Order();
-            patch.setOrderId(order.getOrderId());
-            patch.setProductName(order.getProductName());
-            patch.setProductImage(order.getProductImage());
-            patch.setUpdateTime(LocalDateTime.now());
-            orderMapper.updateById(patch);
+            if (changed) {
+                Order patch = new Order();
+                patch.setOrderId(order.getOrderId());
+                patch.setProductName(order.getProductName());
+                patch.setProductImage(order.getProductImage());
+                patch.setUpdateTime(LocalDateTime.now());
+                orderMapper.updateById(patch);
+            }
         }
         return DemoTextNormalizeUtil.normalizeOrder(order);
+    }
+
+    /**
+     * 订单列表/详情展示用：按 merchantId 填充商家名称（非表字段，需运行时查询）
+     */
+    private void attachMerchantName(Order order) {
+        if (order.getMerchantId() == null) {
+            return;
+        }
+        Merchant merchant = merchantMapper.selectById(order.getMerchantId());
+        if (merchant != null && merchant.getMerchantName() != null && !merchant.getMerchantName().isBlank()) {
+            order.setMerchantName(merchant.getMerchantName());
+        }
     }
 
     /**

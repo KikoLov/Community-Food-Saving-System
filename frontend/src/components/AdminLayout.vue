@@ -276,6 +276,23 @@ const handleLogout = () => {
 
 .sidebar-item {
   margin: 5px 12px;
+  opacity: 0;
+  transform: translateX(-8px);
+  animation: menu-fade-in 360ms ease forwards;
+}
+
+.sidebar-item:nth-child(1) { animation-delay: 40ms; }
+.sidebar-item:nth-child(2) { animation-delay: 80ms; }
+.sidebar-item:nth-child(3) { animation-delay: 120ms; }
+.sidebar-item:nth-child(4) { animation-delay: 160ms; }
+.sidebar-item:nth-child(5) { animation-delay: 200ms; }
+.sidebar-item:nth-child(6) { animation-delay: 240ms; }
+
+@keyframes menu-fade-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 .sidebar-link {
@@ -285,15 +302,60 @@ const handleLogout = () => {
   color: rgba(241, 250, 243, 0.9);
   text-decoration: none;
   border-radius: 14px;
-  transition: all 0.3s ease;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease, background 0.22s ease, color 0.22s ease;
   font-weight: 500;
-  border: 1px solid transparent;
+  border: 1px solid rgba(227, 244, 234, 0.06);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.sidebar-link::before {
+  content: '';
+  position: absolute;
+  left: 10px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(119, 255, 168, 0), rgba(119, 255, 168, 0.95), rgba(119, 255, 168, 0));
+  opacity: 0;
+  transform: scaleY(0.3);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.sidebar-link::after {
+  content: '';
+  position: absolute;
+  inset: -40%;
+  background: radial-gradient(circle, rgba(169, 255, 196, 0.18) 0, rgba(169, 255, 196, 0) 58%);
+  transform: scale(0.25);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.35s ease, opacity 0.35s ease;
 }
 
 .sidebar-link:hover {
-  background: rgba(214, 241, 222, 0.12);
+  background: linear-gradient(135deg, rgba(214, 241, 222, 0.16), rgba(123, 226, 157, 0.08));
   color: #fff;
-  border-color: rgba(189, 235, 204, 0.18);
+  border-color: rgba(189, 235, 204, 0.24);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(8, 36, 22, 0.24);
+}
+
+.sidebar-link:hover::before {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+.sidebar-link:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.sidebar-link:active {
+  transform: translateY(0) scale(0.985);
+  transition-duration: 0.09s;
 }
 
 .sidebar-item.active .sidebar-link {
@@ -304,6 +366,18 @@ const handleLogout = () => {
     inset 0 0 0 1px rgba(234, 255, 240, 0.45),
     0 0 22px rgba(64, 255, 119, 0.45);
   font-weight: 700;
+  transform: translateY(-1px);
+}
+
+.sidebar-item.active .sidebar-link::before {
+  opacity: 1;
+  transform: scaleY(1);
+  background: linear-gradient(180deg, rgba(16, 102, 50, 0), rgba(9, 109, 42, 0.9), rgba(16, 102, 50, 0));
+}
+
+.sidebar-item.active .sidebar-link::after {
+  opacity: 0.55;
+  transform: scale(1.08);
 }
 
 .notify-link {
@@ -322,6 +396,13 @@ const handleLogout = () => {
   line-height: 18px;
   text-align: center;
   font-weight: 700;
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.45);
+  animation: badge-breathe 1.8s ease-in-out infinite;
+}
+
+@keyframes badge-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .menu-icon {
@@ -329,10 +410,27 @@ const handleLogout = () => {
   margin-right: 12px;
   width: 20px;
   text-align: center;
+  transform-origin: center;
+  transition: transform 0.22s ease, filter 0.22s ease;
+}
+
+.sidebar-link:hover .menu-icon {
+  transform: translateY(-1px) scale(1.12) rotate(-4deg);
+  filter: drop-shadow(0 3px 4px rgba(12, 51, 31, 0.3));
+}
+
+.sidebar-item.active .menu-icon {
+  animation: icon-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
 }
 
 .menu-text {
   font-size: 1em;
+  letter-spacing: 0.2px;
 }
 
 .sidebar-footer {

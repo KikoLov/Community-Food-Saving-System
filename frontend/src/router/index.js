@@ -54,6 +54,11 @@ const routes = [
         component: () => import('@/views/consumer/Carbon.vue')
       },
       {
+        path: 'share-poster',
+        name: 'ConsumerSharePoster',
+        component: () => import('@/views/consumer/SharePoster.vue')
+      },
+      {
         path: 'gamification',
         name: 'ConsumerGamification',
         component: () => import('@/views/consumer/Gamification.vue')

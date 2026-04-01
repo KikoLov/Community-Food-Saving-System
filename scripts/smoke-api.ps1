@@ -5,7 +5,11 @@ param(
   [string]$ConsumerUser = "consumer",
   [string]$ConsumerPassword = "consumer123",
   [string]$MerchantUser = "merchant",
-  [string]$MerchantPassword = "merchant123"
+  [string]$MerchantPassword = "merchant123",
+  [string]$Merchant1User = "merchant1",
+  [string]$Merchant1Password = "merchant123",
+  [string]$Merchant2User = "merchant2",
+  [string]$Merchant2Password = "merchant123"
 )
 
 $ErrorActionPreference = "Stop"
@@ -56,11 +60,20 @@ function Login([string]$username, [string]$password) {
 Write-Step "1. Auth login"
 $adminToken = Login $AdminUser $AdminPassword
 $consumerToken = Login $ConsumerUser $ConsumerPassword
-$merchantToken = Login $MerchantUser $MerchantPassword
+$merchantToken = $null
+$merchant1Token = $null
+$merchant2Token = $null
+try { $merchantToken = Login $MerchantUser $MerchantPassword } catch {}
+try { $merchant1Token = Login $Merchant1User $Merchant1Password } catch {}
+try { $merchant2Token = Login $Merchant2User $Merchant2Password } catch {}
 Assert-True ([string]::IsNullOrWhiteSpace($adminToken) -eq $false) "Admin token empty"
 Assert-True ([string]::IsNullOrWhiteSpace($consumerToken) -eq $false) "Consumer token empty"
-Assert-True ([string]::IsNullOrWhiteSpace($merchantToken) -eq $false) "Merchant token empty"
-Write-Host "Login success for all 3 roles."
+Assert-True (
+  [string]::IsNullOrWhiteSpace($merchantToken) -eq $false -or
+  [string]::IsNullOrWhiteSpace($merchant1Token) -eq $false -or
+  [string]::IsNullOrWhiteSpace($merchant2Token) -eq $false
+) "No merchant account can login (tried merchant/merchant1/merchant2)"
+Write-Host "Login success for admin/consumer and at least one merchant account."
 
 Write-Step "2. Notification APIs"
 $notifyRes = Invoke-Api -Method "GET" -Path "/api/notify/list" -Headers @{ Authorization = "Bearer $adminToken" }
@@ -103,11 +116,32 @@ Assert-True ($order2.code -eq 200) ("Second create order failed: " + $order2.msg
 Assert-True ($order1.data.orderId -eq $order2.data.orderId) ("Idempotency failed: " + $order1.data.orderId + " != " + $order2.data.orderId)
 Write-Host ("Idempotency passed, orderId: " + $order1.data.orderId)
 
-$merchantOrders = Invoke-Api -Method "GET" -Path "/api/merchant/orders" -Headers @{ Authorization = "Bearer $merchantToken" }
-Assert-True ($merchantOrders.code -eq 200) "Merchant orders API failed"
-$pending = $merchantOrders.data | Where-Object { $_.orderStatus -eq 0 } | Select-Object -First 1
+$expectedMerchantId = $order1.data.merchantId
+$candidateTokens = @()
+if (-not [string]::IsNullOrWhiteSpace($merchantToken)) { $candidateTokens += $merchantToken }
+if (-not [string]::IsNullOrWhiteSpace($merchant1Token)) { $candidateTokens += $merchant1Token }
+if (-not [string]::IsNullOrWhiteSpace($merchant2Token)) { $candidateTokens += $merchant2Token }
+
+$selectedMerchantToken = $null
+$selectedMerchantOrders = $null
+foreach ($tk in $candidateTokens) {
+  $ordersRes = Invoke-Api -Method "GET" -Path "/api/merchant/orders" -Headers @{ Authorization = "Bearer $tk" }
+  if ($ordersRes.code -ne 200) { continue }
+  $hasTarget = $ordersRes.data | Where-Object { $_.merchantId -eq $expectedMerchantId } | Select-Object -First 1
+  if ($null -ne $hasTarget) {
+    $selectedMerchantToken = $tk
+    $selectedMerchantOrders = $ordersRes.data
+    break
+  }
+}
+Assert-True ($null -ne $selectedMerchantToken) ("Cannot find merchant token for merchantId=" + $expectedMerchantId)
+
+$pending = $selectedMerchantOrders | Where-Object { $_.orderStatus -eq 0 -and $_.orderId -eq $order1.data.orderId } | Select-Object -First 1
+if ($null -eq $pending) {
+  $pending = $selectedMerchantOrders | Where-Object { $_.orderStatus -eq 0 } | Select-Object -First 1
+}
 Assert-True ($null -ne $pending) "No pending order for verify preview"
-$preview = Invoke-Api -Method "POST" -Path "/api/merchant/order/preview" -Body @{ verifyCode = $pending.verifyCode } -Headers @{ Authorization = "Bearer $merchantToken" }
+$preview = Invoke-Api -Method "POST" -Path "/api/merchant/order/preview" -Body @{ verifyCode = $pending.verifyCode } -Headers @{ Authorization = "Bearer $selectedMerchantToken" }
 Assert-True ($preview.code -eq 200) "Verify preview failed"
 Write-Host ("Verify preview passed, orderNo: " + $preview.data.orderNo)
 

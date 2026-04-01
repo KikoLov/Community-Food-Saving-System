@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="products-hall">
     <!-- Community Selection Modal -->
     <div v-if="!selectedCommunity" class="card">
       <div class="card-header">
@@ -30,7 +30,7 @@
     <div v-else>
       <div class="d-flex justify-between align-center mb-3">
         <h2>{{ selectedCommunity.communityName }} - 临期商品</h2>
-        <button @click="clearCommunity" class="btn btn-secondary">切换社区</button>
+        <button @click="clearCommunity" class="btn btn-primary">切换社区</button>
       </div>
 
       <!-- Merchant Overview -->
@@ -46,7 +46,7 @@
               <p v-if="merchantRatingMap[merchant.merchantId]" class="text-muted">
                 好评率：{{ merchantRatingMap[merchant.merchantId].goodRate }}%（{{ merchantRatingMap[merchant.merchantId].totalReviews }}条）
               </p>
-              <button class="btn btn-secondary" @click="goMerchantDetail(merchant.merchantId)">查看详情</button>
+              <button class="btn btn-primary" @click="goMerchantDetail(merchant.merchantId)">查看详情</button>
             </div>
           </div>
         </div>
@@ -61,11 +61,16 @@
           placeholder="搜索商品名/描述"
         >
         <select v-model="sortType" class="sort-select">
+          <option value="surprise_first">盲盒优先</option>
           <option value="expire_asc">按临期优先</option>
           <option value="price_asc">价格从低到高</option>
           <option value="price_desc">价格从高到低</option>
           <option value="stock_desc">库存从多到少</option>
         </select>
+        <label class="d-flex align-center" style="gap: 6px; cursor: pointer;">
+          <input type="checkbox" v-model="surpriseBagOnly">
+          <span>仅看盲盒</span>
+        </label>
       </div>
 
       <div class="mb-3">
@@ -74,7 +79,7 @@
           :key="cat.categoryId"
           @click="filterByCategory(cat.categoryId)"
           class="btn"
-          :class="selectedCategory === cat.categoryId ? 'btn-primary' : 'btn-secondary'"
+          :class="selectedCategory === cat.categoryId ? 'btn-primary' : 'btn-outline-primary'"
           style="margin-right: 10px; margin-bottom: 10px;"
         >
           {{ cat.categoryName }}
@@ -82,7 +87,7 @@
         <button
           v-if="selectedCategory"
           @click="selectedCategory = null"
-          class="btn btn-secondary"
+          class="btn btn-primary"
         >
           全部分类
         </button>
@@ -110,7 +115,7 @@
             <h3>{{ merchant.merchantName }}</h3>
             <div class="d-flex align-center" style="gap: 10px;">
               <span class="text-muted">共 {{ merchant.products.length }} 件在售商品</span>
-              <button class="btn btn-secondary" @click="goMerchantDetail(merchant.merchantId)">查看商家详情</button>
+              <button class="btn btn-primary" @click="goMerchantDetail(merchant.merchantId)">查看商家详情</button>
             </div>
           </div>
           <div class="row">
@@ -125,8 +130,12 @@
                   >
                 </div>
                 <div style="padding: 15px;">
-                  <h3 style="font-size: 1.1em; margin-bottom: 10px;">{{ product.productName }}</h3>
+                  <div class="d-flex align-items-center" style="gap: 6px; margin-bottom: 6px;">
+                    <h3 style="font-size: 1.1em; margin: 0;">{{ product.productName }}</h3>
+                    <span v-if="product.surpriseBag" class="badge bg-info text-dark">盲盒</span>
+                  </div>
                   <p class="text-muted" style="font-size: 0.9em; margin-bottom: 10px;">{{ product.description }}</p>
+                  <p v-if="product.surpriseBag" style="font-size: 0.85em; color: #d63384; margin-bottom: 8px;">名义价值：¥{{ product.bagValue ?? '-' }}</p>
 
                   <div class="d-flex justify-between align-center mb-2">
                     <div>
@@ -179,7 +188,8 @@ const merchantList = ref([])
 const categories = ref([])
 const selectedCategory = ref(null)
 const keyword = ref('')
-const sortType = ref('expire_asc')
+const sortType = ref('surprise_first')
+const surpriseBagOnly = ref(false)
 const loading = ref(false)
 const merchantRatingMap = ref({})
 
@@ -188,6 +198,9 @@ const processedProducts = computed(() => {
   if (selectedCategory.value) {
     list = list.filter(p => p.categoryId === selectedCategory.value)
   }
+  if (surpriseBagOnly.value) {
+    list = list.filter(p => p.surpriseBag === 1 || p.surpriseBag === true)
+  }
   if (keyword.value) {
     const q = keyword.value.toLowerCase()
     list = list.filter(p =>
@@ -195,7 +208,14 @@ const processedProducts = computed(() => {
       String(p.description || '').toLowerCase().includes(q)
     )
   }
-  if (sortType.value === 'price_asc') {
+  if (sortType.value === 'surprise_first') {
+    list.sort((a, b) => {
+      const aIsSurprise = (a.surpriseBag === 1 || a.surpriseBag === true) ? 0 : 1
+      const bIsSurprise = (b.surpriseBag === 1 || b.surpriseBag === true) ? 0 : 1
+      if (aIsSurprise !== bIsSurprise) return aIsSurprise - bIsSurprise
+      return new Date(a.expireDatetime).getTime() - new Date(b.expireDatetime).getTime()
+    })
+  } else if (sortType.value === 'price_asc') {
     list.sort((a, b) => Number(a.discountPrice || 0) - Number(b.discountPrice || 0))
   } else if (sortType.value === 'price_desc') {
     list.sort((a, b) => Number(b.discountPrice || 0) - Number(a.discountPrice || 0))
@@ -410,5 +430,17 @@ onMounted(() => {
   border-radius: 999px;
   padding: 8px 12px;
   background: #f7fcf8;
+}
+
+/* 与「加入购物车」同为 btn-primary；未选分类用线框主色，避免 Bootstrap 默认蓝描边 */
+.products-hall :deep(.btn-outline-primary) {
+  color: var(--primary-color, #2e7d32);
+  border: 2px solid var(--primary-color, #2e7d32);
+  background: transparent;
+}
+.products-hall :deep(.btn-outline-primary:hover) {
+  background: rgba(46, 125, 50, 0.12);
+  color: var(--dark-color, #1b5e20);
+  border-color: var(--dark-color, #1b5e20);
 }
 </style>

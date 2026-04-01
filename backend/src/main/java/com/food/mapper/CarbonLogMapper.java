@@ -26,6 +26,18 @@ public interface CarbonLogMapper extends BaseMapper<CarbonLog> {
     List<CarbonLog> selectCarbonLogListByUser(@Param("userId") Long userId);
 
     /**
+     * 用户碳积分商城兑换等扣减累计（log_type=2 的 carbon_points 为扣减分值，正数存库）
+     */
+    @Select("""
+            SELECT IFNULL(SUM(l.carbon_points), 0)
+            FROM biz_carbon_log l
+            WHERE l.user_id = #{userId}
+              AND l.log_type = 2
+              AND (l.deleted IS NULL OR l.deleted = 0)
+            """)
+    BigDecimal sumRedeemCarbonPointsByUser(@Param("userId") Long userId);
+
+    /**
      * 统计全平台碳减排总量
      */
     @Select("SELECT IFNULL(SUM(carbon_saved), 0) FROM biz_carbon_log WHERE log_type = 1")
