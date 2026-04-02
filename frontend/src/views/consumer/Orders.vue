@@ -42,6 +42,11 @@
           <i class="fas fa-check me-1"></i>已核销
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: activeTab === '4' }" href="#" @click.prevent="activeTab = '4'">
+          <i class="fas fa-undo-alt me-1"></i>已退款
+        </a>
+      </li>
     </ul>
 
     <div class="card">
@@ -72,8 +77,8 @@
                 <td><span class="fw-bold text-danger">¥{{ row.totalAmount }}</span></td>
                 <td><span class="badge bg-warning text-dark">{{ row.verifyCode }}</span></td>
                 <td>
-                  <span :class="['badge', getStatusClass(row.orderStatus)]">
-                    {{ getStatusText(row.orderStatus) }}
+                  <span :class="['badge', getRowStatusClass(row)]">
+                    {{ getRowStatusText(row) }}
                   </span>
                 </td>
                 <td>
@@ -95,7 +100,14 @@
                   </button>
                   <span v-if="row.orderStatus === 1 && reviewedOrderIds.has(row.orderId)" class="text-success small me-2">已评价</span>
                   <button
-                    v-if="row.orderStatus === 0"
+                    v-if="row.orderStatus === 0 && canApplyRefund(row)"
+                    class="btn btn-outline-warning btn-sm me-2"
+                    @click="handleApplyRefund(row.orderId)"
+                  >
+                    申请退款
+                  </button>
+                  <button
+                    v-if="row.orderStatus === 0 && row.refundApplyStatus !== 1"
                     class="btn btn-outline-danger btn-sm"
                     @click="handleCancel(row.orderId)"
                   >
@@ -142,7 +154,10 @@
         <div class="detail-grid">
           <div><span class="k">订单号</span><span class="v">{{ detailOrder.orderNo }}</span></div>
           <div><span class="k">商家</span><span class="v">{{ detailOrder.merchantName || '未知商家' }}</span></div>
-          <div><span class="k">状态</span><span class="v">{{ getStatusText(detailOrder.orderStatus) }}</span></div>
+          <div><span class="k">状态</span><span class="v">{{ getRowStatusText(detailOrder) }}</span></div>
+          <div v-if="detailOrder.refundApplyStatus === 2 && detailOrder.refundRejectReason" class="detail-discount">
+            <span class="k">拒绝理由</span><span class="v text-danger">{{ detailOrder.refundRejectReason }}</span>
+          </div>
           <div><span class="k">商品</span><span class="v">{{ detailOrder.productName }} x{{ detailOrder.quantity }}</span></div>
           <div><span class="k">金额</span><span class="v text-danger">¥{{ detailOrder.totalAmount }}</span></div>
           <div v-if="Number(detailOrder.discountAmount || 0) > 0" class="detail-discount">
@@ -221,7 +236,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { getMyOrders, cancelOrder, createReview, getMyReviews, uploadReviewImage } from '@/api/consumer'
+import { getMyOrders, cancelOrder, applyRefund, createReview, getMyReviews, uploadReviewImage } from '@/api/consumer'
 import { Message } from '@/utils/message'
 import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
 import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
@@ -246,7 +261,11 @@ const reviewForm = ref({
 const filteredOrders = computed(() => {
   let data = orders.value
   if (activeTab.value !== 'all') {
-    data = data.filter(o => o.orderStatus === parseInt(activeTab.value))
+    if (activeTab.value === '4') {
+      data = data.filter(o => o.orderStatus === 4)
+    } else {
+      data = data.filter(o => o.orderStatus === parseInt(activeTab.value))
+    }
   }
   if (!keyword.value) return data
   const q = keyword.value.toLowerCase()
@@ -299,13 +318,38 @@ const loadMyReviews = async () => {
 }
 
 const getStatusClass = (status) => {
-  const classes = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-secondary', 3: 'bg-danger' }
+  const classes = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-secondary', 3: 'bg-danger', 4: 'bg-dark' }
   return classes[status] || 'bg-secondary'
 }
 
 const getStatusText = (status) => {
-  const texts = { 0: '待核销', 1: '已核销', 2: '已取消', 3: '已过期' }
+  const texts = { 0: '待核销', 1: '已核销', 2: '已取消', 3: '已过期', 4: '已退款' }
   return texts[status] || '未知'
+}
+
+const getRowStatusText = (row) => {
+  if (!row) return '未知'
+  if (row.orderStatus === 4) return '已退款'
+  if (row.orderStatus === 0 && row.refundApplyStatus === 1) return '退款审核中'
+  if (row.orderStatus === 0 && row.refundApplyStatus === 2) return '待核销（退款已拒绝）'
+  return getStatusText(row.orderStatus)
+}
+
+const getRowStatusClass = (row) => {
+  if (!row) return 'bg-secondary'
+  if (row.orderStatus === 4) return 'bg-dark'
+  if (row.orderStatus === 0 && row.refundApplyStatus === 1) return 'bg-info text-dark'
+  if (row.orderStatus === 0 && row.refundApplyStatus === 2) return 'bg-warning text-dark'
+  return getStatusClass(row.orderStatus)
+}
+
+const canApplyRefund = (row) => {
+  if (!row || row.orderStatus !== 0) return false
+  const rs = row.refundApplyStatus ?? 0
+  if (rs === 1 || rs === 2 || rs === 3) return false
+  if (!row.createTime) return false
+  const created = new Date(row.createTime).getTime()
+  return Date.now() - created <= 10 * 60 * 1000
 }
 
 const formatDateTime = (datetime) => {
@@ -346,7 +390,7 @@ const printDetail = () => {
       <h2>订单凭证</h2>
       <p>订单号：${o.orderNo || ''}</p>
       <p>商家：${o.merchantName || '未知商家'}</p>
-      <p>状态：${getStatusText(o.orderStatus)}</p>
+      <p>状态：${getRowStatusText(o)}</p>
       <p>商品：${o.productName || ''} x${o.quantity || 0}</p>
       ${Number(o.discountAmount || 0) > 0 ? `<p>优惠前：¥${o.originalAmount || 0}，优惠：-¥${o.discountAmount}，券码：${o.couponCode || '-'}</p>` : ''}
       <p>实付：¥${o.totalAmount || 0}</p>
@@ -369,9 +413,31 @@ const handleImgError = (e) => {
 
 const getTimelineSteps = (order) => {
   const status = Number(order?.orderStatus ?? 0)
+  const rs = order?.refundApplyStatus ?? 0
+  const placed = `下单 ${formatDateTime(order?.createTime) || ''}`.trim()
+  if (status === 4) {
+    return [
+      { label: placed, active: true },
+      { label: '已退款', active: true }
+    ]
+  }
+  if (rs === 1) {
+    return [
+      { label: placed, active: true },
+      { label: '退款审核中', active: true },
+      { label: '待核销', active: false }
+    ]
+  }
+  if (rs === 2 && status === 0) {
+    return [
+      { label: placed, active: true },
+      { label: '退款已拒绝', active: true },
+      { label: '待核销', active: true }
+    ]
+  }
   return [
-    { label: `下单 ${formatDateTime(order?.createTime) || ''}`.trim(), active: true },
-    { label: '待核销', active: status >= 0 },
+    { label: placed, active: true },
+    { label: '待核销', active: status === 0 },
     { label: '已核销', active: status === 1 },
     { label: '已取消', active: status === 2 },
     { label: '已过期', active: status === 3 }
@@ -393,6 +459,17 @@ const handleCancel = async (orderId) => {
     } catch (error) {
       console.error(error)
     }
+  }
+}
+
+const handleApplyRefund = async (orderId) => {
+  if (!confirm('确定申请退款？提交后需商家审核，同意则实付退回余额。')) return
+  try {
+    await applyRefund(orderId)
+    Message.success('已提交退款申请，请等待商家处理')
+    await loadOrders()
+  } catch (error) {
+    console.error(error)
   }
 }
 
@@ -444,7 +521,7 @@ const exportCsv = () => {
     `${row.productName} x${row.quantity}`,
     row.totalAmount,
     row.verifyCode,
-    getStatusText(row.orderStatus),
+    getRowStatusText(row),
     `${row.carbonSaved} kg`,
     formatDateTime(row.createTime)
   ])

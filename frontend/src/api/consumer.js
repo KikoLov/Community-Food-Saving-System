@@ -103,6 +103,14 @@ export function cancelOrder(orderId) {
   })
 }
 
+// 申请退款（支付后 10 分钟内）
+export function applyRefund(orderId) {
+  return request({
+    url: `/consumer/order/${orderId}/refund-apply`,
+    method: 'post'
+  })
+}
+
 // Get carbon center
 export function getCarbonCenter() {
   return request({

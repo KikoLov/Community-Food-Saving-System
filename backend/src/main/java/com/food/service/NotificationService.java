@@ -59,9 +59,24 @@ public class NotificationService {
                 item.setId("consumer-order-" + o.getOrderId());
                 item.setTitle("订单状态更新");
                 item.setContent("订单 " + o.getOrderNo() + " 当前状态：" + orderStatusText(o.getOrderStatus()));
-                item.setLevel(o.getOrderStatus() == 1 ? "success" : (o.getOrderStatus() == 3 ? "danger" : "warning"));
+                item.setLevel(o.getOrderStatus() == 1 ? "success"
+                        : (o.getOrderStatus() == 3 ? "danger"
+                        : (o.getOrderStatus() == 4 ? "info" : "warning")));
                 item.setTargetPath("/consumer/orders");
                 item.setCreateTime(o.getUpdateTime() != null ? o.getUpdateTime() : o.getCreateTime());
+                list.add(item);
+            }
+            if (Integer.valueOf(2).equals(o.getRefundApplyStatus()) && o.getRefundAuditTime() != null) {
+                NotificationItemDTO item = new NotificationItemDTO();
+                item.setId("consumer-refund-reject-" + o.getOrderId());
+                item.setTitle("退款申请未通过");
+                String reason = o.getRefundRejectReason() != null && !o.getRefundRejectReason().isBlank()
+                        ? o.getRefundRejectReason()
+                        : "商家未说明";
+                item.setContent("订单 " + o.getOrderNo() + " 的退款申请已被拒绝。理由：" + reason);
+                item.setLevel("danger");
+                item.setTargetPath("/consumer/orders");
+                item.setCreateTime(o.getRefundAuditTime());
                 list.add(item);
             }
         }
@@ -86,6 +101,18 @@ public class NotificationService {
             list.add(summary);
         }
 
+        long refundPending = orders.stream().filter(x -> Integer.valueOf(1).equals(x.getRefundApplyStatus())).count();
+        if (refundPending > 0) {
+            NotificationItemDTO summary = new NotificationItemDTO();
+            summary.setId("merchant-refund-pending-summary");
+            summary.setTitle("待处理退款申请");
+            summary.setContent("当前有 " + refundPending + " 笔顾客退款申请待审核，请及时处理。");
+            summary.setLevel("danger");
+            summary.setTargetPath("/merchant/orders");
+            summary.setCreateTime(now);
+            list.add(summary);
+        }
+
         for (Order o : orders) {
             if (o.getOrderStatus() != null && o.getOrderStatus() == 0) {
                 NotificationItemDTO item = new NotificationItemDTO();
@@ -95,6 +122,16 @@ public class NotificationService {
                 item.setLevel("info");
                 item.setTargetPath("/merchant/verify");
                 item.setCreateTime(o.getCreateTime());
+                list.add(item);
+            }
+            if (Integer.valueOf(1).equals(o.getRefundApplyStatus())) {
+                NotificationItemDTO item = new NotificationItemDTO();
+                item.setId("merchant-refund-" + o.getOrderId());
+                item.setTitle("退款申请待审核");
+                item.setContent("订单 " + o.getOrderNo() + "（" + o.getProductName() + "）顾客申请退款，请同意或拒绝。");
+                item.setLevel("danger");
+                item.setTargetPath("/merchant/orders");
+                item.setCreateTime(o.getRefundApplyTime() != null ? o.getRefundApplyTime() : o.getCreateTime());
                 list.add(item);
             }
         }
@@ -151,6 +188,7 @@ public class NotificationService {
             case 1 -> "已核销";
             case 2 -> "已取消";
             case 3 -> "已过期";
+            case 4 -> "已退款";
             default -> "未知";
         };
     }

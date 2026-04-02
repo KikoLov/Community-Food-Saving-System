@@ -38,4 +38,27 @@ public interface MerchantMapper extends BaseMapper<Merchant> {
         ORDER BY m.merchant_id DESC
         """)
     List<CommunityMerchantDTO> selectCommunityMerchants(@Param("communityId") Long communityId);
+
+    @Select("""
+        SELECT COUNT(1)
+        FROM biz_merchant
+        WHERE deleted = 0 AND community_id = #{communityId}
+        """)
+    Long countMerchantsByCommunity(@Param("communityId") Long communityId);
+
+    /**
+     * 社区内在售商品总数（多商户汇总，口径同居民端列表）
+     */
+    @Select("""
+        SELECT COUNT(1)
+        FROM biz_product p
+        INNER JOIN biz_merchant m ON m.merchant_id = p.merchant_id
+            AND m.deleted = 0
+            AND m.community_id = #{communityId}
+        WHERE p.deleted = 0
+          AND p.status = 1
+          AND p.stock > 0
+          AND p.expire_datetime > NOW()
+        """)
+    Long countOnSaleProductsByCommunity(@Param("communityId") Long communityId);
 }

@@ -42,6 +42,16 @@
           <i class="fas fa-check me-1"></i>已核销
         </a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: activeTab === 'refund' }" href="#" @click.prevent="activeTab = 'refund'">
+          <i class="fas fa-hand-holding-usd me-1"></i>退款待审
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link" :class="{ active: activeTab === '4' }" href="#" @click.prevent="activeTab = '4'">
+          <i class="fas fa-undo-alt me-1"></i>已退款
+        </a>
+      </li>
     </ul>
 
     <div class="card">
@@ -69,13 +79,17 @@
                 <td><span class="fw-bold text-danger">¥{{ row.totalAmount }}</span></td>
                 <td><span class="badge bg-warning text-dark">{{ row.verifyCode }}</span></td>
                 <td>
-                  <span :class="['badge', getStatusClass(row.orderStatus)]">
-                    {{ getStatusText(row.orderStatus) }}
+                  <span :class="['badge', getRowStatusClass(row)]">
+                    {{ getRowStatusText(row) }}
                   </span>
                 </td>
                 <td><small>{{ formatDateTime(row.createTime) }}</small></td>
                 <td>
-                  <button class="btn btn-outline-primary btn-sm" @click="openDetail(row)">查看详情</button>
+                  <button class="btn btn-outline-primary btn-sm me-1" @click="openDetail(row)">查看详情</button>
+                  <template v-if="row.refundApplyStatus === 1">
+                    <button class="btn btn-success btn-sm me-1" @click="handleApproveRefund(row)">同意退款</button>
+                    <button class="btn btn-outline-danger btn-sm" @click="openRejectRefund(row)">拒绝</button>
+                  </template>
                 </td>
               </tr>
               <tr v-if="filteredOrders.length === 0">
@@ -116,7 +130,10 @@
         </div>
         <div class="detail-grid">
           <div><span class="k">订单号</span><span class="v">{{ detailOrder.orderNo }}</span></div>
-          <div><span class="k">状态</span><span class="v">{{ getStatusText(detailOrder.orderStatus) }}</span></div>
+          <div><span class="k">状态</span><span class="v">{{ getRowStatusText(detailOrder) }}</span></div>
+          <div v-if="detailOrder.refundApplyStatus === 2 && detailOrder.refundRejectReason">
+            <span class="k">拒绝理由</span><span class="v text-danger">{{ detailOrder.refundRejectReason }}</span>
+          </div>
           <div><span class="k">买家</span><span class="v">{{ detailOrder.userName || '-' }}</span></div>
           <div><span class="k">商品</span><span class="v">{{ detailOrder.productName }} x{{ detailOrder.quantity }}</span></div>
           <div><span class="k">金额</span><span class="v text-danger">¥{{ detailOrder.totalAmount }}</span></div>
@@ -138,12 +155,35 @@
         </div>
       </div>
     </div>
+
+    <div v-if="rejectRefundOrder" class="detail-mask" @click.self="closeRejectRefund">
+      <div class="detail-card" style="max-width: 420px;">
+        <div class="detail-head">
+          <h5 class="mb-0">拒绝退款</h5>
+          <button class="btn btn-sm btn-light" @click="closeRejectRefund">关闭</button>
+        </div>
+        <p class="small text-muted mb-2">订单 {{ rejectRefundOrder.orderNo }}，请向顾客说明原因（必填）。</p>
+        <textarea
+          v-model.trim="rejectReason"
+          class="form-control mb-3"
+          rows="4"
+          maxlength="500"
+          placeholder="拒绝理由（1～500字）"
+        />
+        <div class="d-flex justify-content-end gap-2">
+          <button type="button" class="btn btn-light" @click="closeRejectRefund">取消</button>
+          <button type="button" class="btn btn-danger" :disabled="rejectLoading" @click="submitRejectRefund">
+            {{ rejectLoading ? '提交中…' : '确认拒绝' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, computed, watch } from 'vue'
-import { getMerchantOrders } from '@/api/merchant'
+import { getMerchantOrders, approveMerchantRefund, rejectMerchantRefund } from '@/api/merchant'
 import { Message } from '@/utils/message'
 import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
 import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
@@ -154,20 +194,31 @@ const keyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const detailOrder = ref(null)
+const rejectRefundOrder = ref(null)
+const rejectReason = ref('')
+const rejectLoading = ref(false)
 
-onMounted(async () => {
+const loadMerchantOrders = async () => {
   try {
     const res = await getMerchantOrders()
     orders.value = (res.data || []).map(normalizeProductRecord)
   } catch (error) {
     console.error(error)
   }
-})
+}
+
+onMounted(() => loadMerchantOrders())
 
 const filteredOrders = computed(() => {
   let data = orders.value
   if (activeTab.value !== 'all') {
-    data = data.filter(o => o.orderStatus === parseInt(activeTab.value))
+    if (activeTab.value === 'refund') {
+      data = data.filter(o => o.refundApplyStatus === 1)
+    } else if (activeTab.value === '4') {
+      data = data.filter(o => o.orderStatus === 4)
+    } else {
+      data = data.filter(o => o.orderStatus === parseInt(activeTab.value))
+    }
   }
 
   if (!keyword.value) return data
@@ -196,13 +247,27 @@ watch(totalPages, (val) => {
 })
 
 const getStatusClass = (status) => {
-  const classes = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-secondary', 3: 'bg-danger' }
+  const classes = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-secondary', 3: 'bg-danger', 4: 'bg-dark' }
   return classes[status] || 'bg-secondary'
 }
 
 const getStatusText = (status) => {
-  const texts = { 0: '待核销', 1: '已核销', 2: '已取消', 3: '已过期' }
+  const texts = { 0: '待核销', 1: '已核销', 2: '已取消', 3: '已过期', 4: '已退款' }
   return texts[status] || '未知'
+}
+
+const getRowStatusText = (row) => {
+  if (!row) return '未知'
+  if (row.orderStatus === 4) return '已退款'
+  if (row.refundApplyStatus === 1) return '待核销 · 退款待审'
+  return getStatusText(row.orderStatus)
+}
+
+const getRowStatusClass = (row) => {
+  if (!row) return 'bg-secondary'
+  if (row.orderStatus === 4) return 'bg-dark'
+  if (row.refundApplyStatus === 1) return 'bg-danger'
+  return getStatusClass(row.orderStatus)
 }
 
 const formatDateTime = (datetime) => {
@@ -233,7 +298,7 @@ const printDetail = () => {
     </head><body>
       <h2>订单凭证</h2>
       <p>订单号：${o.orderNo || ''}</p>
-      <p>状态：${getStatusText(o.orderStatus)}</p>
+      <p>状态：${getRowStatusText(o)}</p>
       <p>买家：${o.userName || '-'}</p>
       <p>商品：${o.productName || ''} x${o.quantity || 0}</p>
       <p>金额：¥${o.totalAmount || 0}</p>
@@ -254,9 +319,16 @@ const handleImgError = (e) => {
 
 const getTimelineSteps = (order) => {
   const status = Number(order?.orderStatus ?? 0)
+  const placed = `下单 ${formatDateTime(order?.createTime) || ''}`.trim()
+  if (status === 4) {
+    return [{ label: placed, active: true }, { label: '已退款', active: true }]
+  }
+  if (order?.refundApplyStatus === 1) {
+    return [{ label: placed, active: true }, { label: '退款审核中', active: true }, { label: '待核销', active: false }]
+  }
   return [
-    { label: `下单 ${formatDateTime(order?.createTime) || ''}`.trim(), active: true },
-    { label: '待核销', active: status >= 0 },
+    { label: placed, active: true },
+    { label: '待核销', active: status === 0 },
     { label: '已核销', active: status === 1 },
     { label: '已取消', active: status === 2 },
     { label: '已过期', active: status === 3 }
@@ -267,6 +339,47 @@ const detailTimeline = computed(() => {
   return detailOrder.value ? getTimelineSteps(detailOrder.value) : []
 })
 
+const handleApproveRefund = async (row) => {
+  if (!confirm('同意退款后，实付将退回顾客余额并恢复库存与优惠券，确定？')) return
+  try {
+    await approveMerchantRefund(row.orderId)
+    Message.success('已同意退款')
+    await loadMerchantOrders()
+    if (detailOrder.value?.orderId === row.orderId) detailOrder.value = null
+  } catch (e) {
+    console.error(e)
+  }
+}
+
+const openRejectRefund = (row) => {
+  rejectRefundOrder.value = row
+  rejectReason.value = ''
+}
+
+const closeRejectRefund = () => {
+  rejectRefundOrder.value = null
+  rejectReason.value = ''
+}
+
+const submitRejectRefund = async () => {
+  const r = rejectReason.value.trim()
+  if (!r) {
+    Message.warning('请填写拒绝理由')
+    return
+  }
+  rejectLoading.value = true
+  try {
+    await rejectMerchantRefund(rejectRefundOrder.value.orderId, r)
+    Message.success('已拒绝该退款申请')
+    closeRejectRefund()
+    await loadMerchantOrders()
+  } catch (e) {
+    console.error(e)
+  } finally {
+    rejectLoading.value = false
+  }
+}
+
 const exportCsv = () => {
   if (!filteredOrders.value.length) return
   const header = ['订单号', '商品信息', '买家', '金额', '核销码', '状态', '下单时间']
@@ -276,7 +389,7 @@ const exportCsv = () => {
     row.userName,
     row.totalAmount,
     row.verifyCode,
-    getStatusText(row.orderStatus),
+    getRowStatusText(row),
     formatDateTime(row.createTime)
   ])
   const content = [header, ...rows]

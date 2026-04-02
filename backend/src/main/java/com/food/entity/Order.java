@@ -90,9 +90,20 @@ public class Order extends BaseEntity {
     private String verifyCode;
 
     /**
-     * 订单状态: 0-待核销 1-已核销 2-已取消 3-已过期
+     * 订单状态: 0-待核销 1-已核销 2-已取消 3-已过期 4-已退款（商家同意退款）
      */
     private Integer orderStatus;
+
+    /**
+     * 退款申请: 0-无 1-待商家审核 2-商家已拒绝（不可再申请） 3-退款已完成
+     */
+    private Integer refundApplyStatus;
+
+    private LocalDateTime refundApplyTime;
+
+    private String refundRejectReason;
+
+    private LocalDateTime refundAuditTime;
 
     /**
      * 本次订单碳减排量(kg CO2)

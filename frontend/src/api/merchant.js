@@ -1,5 +1,26 @@
 import request from '@/utils/request'
 
+/**
+ * Spring MVC 绑定 @RequestParam List<Long> productIds 需要 productIds=1&productIds=2；
+ * Axios 默认会序列化成 productIds[]=1，导致绑定失败并触发后端 500「系统繁忙」。
+ */
+function serializeSpringListParams(params) {
+  const usp = new URLSearchParams()
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null) return
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        if (item !== undefined && item !== null) {
+          usp.append(key, String(item))
+        }
+      })
+    } else {
+      usp.append(key, String(value))
+    }
+  })
+  return usp.toString()
+}
+
 // Get merchant profile
 export function getMerchantProfile() {
   return request({
@@ -89,7 +110,8 @@ export function batchUpdateProductStatus(productIds, status) {
   return request({
     url: '/merchant/products/batch-status',
     method: 'put',
-    params: { productIds, status }
+    params: { productIds, status },
+    paramsSerializer: serializeSpringListParams
   })
 }
 
@@ -98,7 +120,8 @@ export function batchDeleteProducts(productIds) {
   return request({
     url: '/merchant/products/batch',
     method: 'delete',
-    params: { productIds }
+    params: { productIds },
+    paramsSerializer: serializeSpringListParams
   })
 }
 
@@ -136,6 +159,22 @@ export function getMerchantOrders() {
   return request({
     url: '/merchant/orders',
     method: 'get'
+  })
+}
+
+// 同意 / 拒绝顾客退款申请
+export function approveMerchantRefund(orderId) {
+  return request({
+    url: `/merchant/order/${orderId}/refund/approve`,
+    method: 'post'
+  })
+}
+
+export function rejectMerchantRefund(orderId, reason) {
+  return request({
+    url: `/merchant/order/${orderId}/refund/reject`,
+    method: 'post',
+    data: { reason }
   })
 }
 

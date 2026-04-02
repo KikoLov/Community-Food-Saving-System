@@ -215,12 +215,12 @@ watch(totalPages, (val) => {
 })
 
 const getStatusClass = (status) => {
-  const classes = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-secondary', 3: 'bg-danger' }
+  const classes = { 0: 'bg-warning text-dark', 1: 'bg-success', 2: 'bg-secondary', 3: 'bg-danger', 4: 'bg-dark' }
   return classes[status] || 'bg-secondary'
 }
 
 const getStatusText = (status) => {
-  const texts = { 0: '待核销', 1: '已核销', 2: '已取消', 3: '已过期' }
+  const texts = { 0: '待核销', 1: '已核销', 2: '已取消', 3: '已过期', 4: '已退款' }
   return texts[status] || '未知'
 }
 
@@ -274,9 +274,13 @@ const handleImgError = (e) => {
 
 const getTimelineSteps = (order) => {
   const status = Number(order?.orderStatus ?? 0)
+  const placed = `下单 ${formatDateTime(order?.createTime) || ''}`.trim()
+  if (status === 4) {
+    return [{ label: placed, active: true }, { label: '已退款', active: true }]
+  }
   return [
-    { label: `下单 ${formatDateTime(order?.createTime) || ''}`.trim(), active: true },
-    { label: '待核销', active: status >= 0 },
+    { label: placed, active: true },
+    { label: '待核销', active: status === 0 },
     { label: '已核销', active: status === 1 },
     { label: '已取消', active: status === 2 },
     { label: '已过期', active: status === 3 }

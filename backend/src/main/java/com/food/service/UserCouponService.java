@@ -57,6 +57,12 @@ public class UserCouponService {
         addOrderColumnIfMissing("original_amount", "DECIMAL(10,2) NULL COMMENT '优惠前小计'");
         addOrderColumnIfMissing("discount_amount", "DECIMAL(10,2) NULL DEFAULT 0 COMMENT '本单优惠金额'");
         addOrderColumnIfMissing("coupon_code", "VARCHAR(64) NULL COMMENT '券码快照'");
+        addOrderColumnIfMissing("refund_apply_status", "TINYINT NOT NULL DEFAULT 0 COMMENT '退款申请:0无 1待审 2已拒 3已完成'");
+        addOrderColumnIfMissing("refund_apply_time", "DATETIME NULL COMMENT '顾客申请退款时间'");
+        addOrderColumnIfMissing("refund_reject_reason", "VARCHAR(500) NULL COMMENT '商家拒绝退款理由'");
+        addOrderColumnIfMissing("refund_audit_time", "DATETIME NULL COMMENT '商家处理退款时间'");
+        addOrderColumnIfMissing("surprise_bag", "TINYINT NOT NULL DEFAULT 0 COMMENT '0普通商品 1盲盒'");
+        addOrderColumnIfMissing("bag_value", "DECIMAL(10,2) NULL COMMENT '盲盒名义价值(元)'");
     }
 
     private void addOrderColumnIfMissing(String column, String ddl) {

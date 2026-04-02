@@ -11,8 +11,8 @@
 
 ## 功能概览
 
-- **居民**：选择社区、浏览商品、购物车、下单（钱包支付）、订单与核销码、**低碳中心**（碳积分与流水；累计碳减排以 **g CO₂** 展示，与成就海报口径一致）、**成就海报**（分享图）、**碳积分商城**（兑换树/徽章/券；进入商城/兑换前与订单流水自动对齐积分）、购物车选用 **未使用优惠券** 自动减价、**社区商家列表（即使商家暂无在售商品也可见）**、**商家详情页（查看商家信息与全部商品状态）**、商城大厅主要操作按钮与「加入购物车」**统一主色**、个人中心余额记录仅展示最近2条消费  
-- **商家**：商品管理、订单、核销、评价、仪表盘  
+- **居民**：选择社区、浏览商品、购物车、下单（钱包支付）、订单与核销码、**下单后 10 分钟内可申请退款**（商家审核；拒绝后不可再申请）、**低碳中心**（碳积分与流水；累计碳减排以 **g CO₂** 展示，与成就海报口径一致）、**成就海报**（分享图）、**碳积分商城**（兑换树/徽章/券；进入商城/兑换前与订单流水自动对齐积分）、购物车选用 **未使用优惠券** 自动减价、**社区商家列表（即使商家暂无在售商品也可见）**、**商家详情页（查看商家信息与全部商品状态）**、商城大厅主要操作按钮与「加入购物车」**统一主色**、个人中心余额记录仅展示最近2条消费  
+- **商家**：商品管理、订单、**退款审核**（同意/拒绝并填写理由）、核销、评价、仪表盘  
 - **管理员**：仪表盘、商户管理（列表/详情统计/删除）、社区与分类、全站订单、操作日志、站内提醒等  
 
 ---
@@ -57,7 +57,7 @@
    mysql -u root -p food_saving < docs/sql/refresh-demo-products-expiry.sql
    ```
 
-   说明：后端启动时也会对部分表做 **自动补表/补列**；已跑过 `carbon-gamification.sql` 或与之一致时，重复执行一般安全（`CREATE IF NOT EXISTS`、按列检测的 `ALTER`）。居民端商品列表会过滤 `expire_datetime <= NOW()` 的商品，过期跑一遍 `refresh-demo-products-expiry.sql` 即可恢复演示。
+   说明：后端启动时也会对部分表做 **自动补表/补列**（含订单表 `biz_order` 的优惠券字段、**退款相关字段**、`surprise_bag` / `bag_value` 盲盒字段等）；已跑过 `carbon-gamification.sql` 或与之一致时，重复执行一般安全（`CREATE IF NOT EXISTS`、按列检测的 `ALTER`）。居民端商品列表会过滤 `expire_datetime <= NOW()` 的商品，过期跑一遍 `refresh-demo-products-expiry.sql` 即可恢复演示。
 
 ---
 
@@ -131,6 +131,19 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1 -InitDb `
 
 ## 最近更新（2026-04-01）
 
+### 订单退款流程（毕设增强）
+
+- **顾客**：待核销订单在 **下单后 10 分钟内** 可发起 **申请退款**；退款审核中不可再点「取消」；**商家拒绝一次后不可再次申请**；详情中可查看拒绝理由。
+- **商家**：订单列表增加 **「退款待审」「已退款」** 分组；待审单可 **同意退款** 或 **拒绝（必填理由，≤500 字）**；站内提醒会提示待处理退款数量。
+- **业务规则**：同意退款后 **实付退回钱包余额**，**恢复库存与优惠券**；订单状态为 **`order_status = 4`（已退款）**。若订单 **已核销** 仍走同意退款（防御性分支），会按核销规则 **扣回碳积分、累计减碳与挽救食品**，删除该单 `log_type=1` 的碳流水并写入 **`log_type=2`** 冲减记录。退款待审期间 **不可核销**；退款审核中顾客 **不可取消订单**。
+- **库表**：`biz_order` 增加 `refund_apply_status`、`refund_apply_time`、`refund_reject_reason`、`refund_audit_time`（启动时由 `UserCouponService.ensureSchema()` 自动 `ALTER` 补列）。
+
+### 购物车 / 下单与库表兼容
+
+- 修复 **`Unknown column 'surprise_bag'`**：`biz_order` 自动补列 **`surprise_bag`、`bag_value`**（与实体 `Order` 盲盒字段一致），避免购物车结算 / 创建订单插入失败。
+
+### 其他（同日）
+
 - **碳积分与资料表一致**：`CarbonService` 按 **已核销订单** 汇总累计减碳、挽救食品与应得碳积分，并扣除兑换流水（`log_type=2`）后写回 `biz_user_profile`；**碳积分商城** 在 `GET /state` 与 **兑换** 前会先执行同一套重算，无需先打开低碳中心即可看到与订单一致的余额。
 - **居民端低碳中心**：累计碳减排、行为洞察中的单次平均减碳、积分记录表「碳减排」列均以 **g CO₂** 展示（后端字段仍为 kg，前端换算）；碳积分 / 减碳 / 挽救食品三项卡片左侧圆形区使用 **SVG 主题插画**（金币叠放、叶片、购物袋与果实）。
 - **居民端商城大厅**：「切换社区」「查看详情」「查看商家详情」「全部分类」等按钮与「加入购物车」同为 **主色实心按钮**；未选中的分类标签为 **主色线框**（`btn-outline-primary`，并按本站绿色主题覆盖 Bootstrap 默认蓝描边）。
@@ -183,12 +196,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-all.ps1 -InitDb `
 `GET /api/consumer/communities`、`GET /api/consumer/products`、`GET /api/consumer/merchants`、`GET /api/consumer/merchant/{merchantId}/detail`  
 `GET /api/consumer/cart`、`POST /api/consumer/cart/checkout`（body 可含 `cartIds`、`couponCode`）  
 `POST /api/consumer/order/create`（body 可含 `couponCode`）  
+`POST /api/consumer/order/{id}/refund-apply`（申请退款，10 分钟内且待核销）  
 `GET /api/consumer/orders`、`GET /api/consumer/carbon`  
 `GET /api/consumer/gamification/catalog`、`GET /api/consumer/gamification/state`、`POST /api/consumer/gamification/redeem`  
 `GET /api/consumer/coupons`（未使用优惠券列表）
 
 **商家**  
-`GET /api/merchant/orders`、`POST /api/merchant/order/verify` 等  
+`GET /api/merchant/orders`、`POST /api/merchant/order/verify`、`POST /api/merchant/order/{orderId}/refund/approve`、`POST /api/merchant/order/{orderId}/refund/reject`（body：`{ "reason": "拒绝理由" }`）等  
 
 **管理员**  
 `GET /api/admin/dashboard/stats`、`GET /api/admin/merchants`、`GET /api/admin/merchants/{id}/stats`、`DELETE /api/admin/merchants/{id}` 等  

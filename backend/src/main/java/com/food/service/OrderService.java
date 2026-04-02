@@ -214,6 +214,12 @@ public class OrderService {
         if (order.getOrderStatus() == 3) {
             throw new RuntimeException("该订单已过期，不能核销");
         }
+        if (order.getOrderStatus() == 4) {
+            throw new RuntimeException("该订单已退款，不能核销");
+        }
+        if (order.getOrderStatus() == 0 && Integer.valueOf(1).equals(order.getRefundApplyStatus())) {
+            throw new RuntimeException("该订单正在申请退款，请先处理退款申请后再核销");
+        }
         if (order.getOrderStatus() != 0) {
             throw new RuntimeException("订单状态异常，无法核销");
         }
@@ -259,16 +265,126 @@ public class OrderService {
         if (!order.getUserId().equals(userId)) {
             throw new RuntimeException("无权限操作");
         }
+        if (Integer.valueOf(1).equals(order.getRefundApplyStatus())) {
+            throw new RuntimeException("退款审核中，暂不可取消订单，请等待商家处理");
+        }
         if (order.getOrderStatus() != 0) {
             throw new RuntimeException("订单状态异常，无法取消");
         }
 
-        // 回滚库存
-        productService.rollbackStock(order.getProductId(), order.getQuantity());
+        refundWalletStockAndCoupon(order);
 
-        // 退还钱包（实付金额）
+        order.setOrderStatus(2); // 已取消
+        order.setUpdateTime(LocalDateTime.now());
+        orderMapper.updateById(order);
+    }
+
+    /**
+     * 顾客申请退款：支付后 10 分钟内、待核销、且未被商家拒绝过。
+     */
+    @Transactional
+    public void applyRefund(Long orderId, Long userId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        if (!order.getUserId().equals(userId)) {
+            throw new RuntimeException("无权限操作");
+        }
+        if (order.getOrderStatus() == null || order.getOrderStatus() != 0) {
+            throw new RuntimeException("仅待核销订单可申请退款");
+        }
+        int rs = order.getRefundApplyStatus() == null ? 0 : order.getRefundApplyStatus();
+        if (rs == 1) {
+            throw new RuntimeException("退款申请处理中，请耐心等待商家审核");
+        }
+        if (rs == 2) {
+            throw new RuntimeException("商家已拒绝退款，无法再次申请");
+        }
+        if (rs == 3) {
+            throw new RuntimeException("该订单已完成退款");
+        }
+        LocalDateTime deadline = order.getCreateTime().plusMinutes(10);
+        if (LocalDateTime.now().isAfter(deadline)) {
+            throw new RuntimeException("已超过支付后10分钟，无法申请退款");
+        }
+
+        Order patch = new Order();
+        patch.setOrderId(orderId);
+        patch.setRefundApplyStatus(1);
+        patch.setRefundApplyTime(LocalDateTime.now());
+        patch.setRefundRejectReason(null);
+        patch.setUpdateTime(LocalDateTime.now());
+        orderMapper.updateById(patch);
+    }
+
+    /**
+     * 商家同意退款：退回余额、库存、优惠券；若已核销则扣回碳积分与减排统计。
+     */
+    @Transactional
+    public void approveRefund(Long orderId, Long merchantId) {
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        if (!order.getMerchantId().equals(merchantId)) {
+            throw new RuntimeException("无权限操作");
+        }
+        if (!Integer.valueOf(1).equals(order.getRefundApplyStatus())) {
+            throw new RuntimeException("当前没有待处理的退款申请");
+        }
+        if (order.getOrderStatus() != null && (order.getOrderStatus() == 2 || order.getOrderStatus() == 3 || order.getOrderStatus() == 4)) {
+            throw new RuntimeException("订单状态异常，无法退款");
+        }
+
+        if (order.getOrderStatus() != null && order.getOrderStatus() == 1) {
+            reverseCarbonEarnIfVerified(order);
+        }
+        refundWalletStockAndCoupon(order);
+
+        order.setOrderStatus(4);
+        order.setRefundApplyStatus(3);
+        order.setRefundAuditTime(LocalDateTime.now());
+        order.setUpdateTime(LocalDateTime.now());
+        orderMapper.updateById(order);
+    }
+
+    /**
+     * 商家拒绝退款（须填写理由）；拒绝后顾客不可再次申请。
+     */
+    @Transactional
+    public void rejectRefund(Long orderId, Long merchantId, String reason) {
+        String r = reason == null ? "" : reason.trim();
+        if (r.isEmpty()) {
+            throw new RuntimeException("请填写拒绝理由");
+        }
+        if (r.length() > 500) {
+            throw new RuntimeException("拒绝理由不超过500字");
+        }
+        Order order = orderMapper.selectById(orderId);
+        if (order == null) {
+            throw new RuntimeException("订单不存在");
+        }
+        if (!order.getMerchantId().equals(merchantId)) {
+            throw new RuntimeException("无权限操作");
+        }
+        if (!Integer.valueOf(1).equals(order.getRefundApplyStatus())) {
+            throw new RuntimeException("当前没有待处理的退款申请");
+        }
+
+        Order patch = new Order();
+        patch.setOrderId(orderId);
+        patch.setRefundApplyStatus(2);
+        patch.setRefundRejectReason(r);
+        patch.setRefundAuditTime(LocalDateTime.now());
+        patch.setUpdateTime(LocalDateTime.now());
+        orderMapper.updateById(patch);
+    }
+
+    private void refundWalletStockAndCoupon(Order order) {
+        productService.rollbackStock(order.getProductId(), order.getQuantity());
         UserProfile profile = userProfileMapper.selectOne(
-                new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
+                new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, order.getUserId())
         );
         if (profile != null && order.getTotalAmount() != null) {
             BigDecimal bal = profile.getWalletBalance() != null ? profile.getWalletBalance() : BigDecimal.ZERO;
@@ -276,14 +392,50 @@ public class OrderService {
             profile.setUpdateTime(LocalDateTime.now());
             userProfileMapper.updateById(profile);
         }
-
-        // 退回优惠券
         userCouponService.restoreIfOrderCancelled(order.getUserCouponId());
+    }
 
-        // 更新订单状态
-        order.setOrderStatus(2); // 已取消
-        order.setUpdateTime(LocalDateTime.now());
-        orderMapper.updateById(order);
+    /**
+     * 已核销订单退款时，按核销入账规则扣回用户档案并冲减碳日志（与 verifyOrder 对称）。
+     */
+    private void reverseCarbonEarnIfVerified(Order order) {
+        if (order.getOrderStatus() == null || order.getOrderStatus() != 1) {
+            return;
+        }
+        Long userId = order.getUserId();
+        UserProfile userProfile = userProfileMapper.selectOne(
+                new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, userId)
+        );
+        if (userProfile == null) {
+            return;
+        }
+        BigDecimal carbonPoints = (order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount())
+                .multiply(new BigDecimal("5"))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal orderCarbon = order.getCarbonSaved() != null ? order.getCarbonSaved() : BigDecimal.ZERO;
+        BigDecimal curPoints = userProfile.getCarbonPoints() != null ? userProfile.getCarbonPoints() : BigDecimal.ZERO;
+        BigDecimal curCarbon = userProfile.getTotalCarbonSaved() != null ? userProfile.getTotalCarbonSaved() : BigDecimal.ZERO;
+        BigDecimal curFood = userProfile.getTotalFoodSaved() != null ? userProfile.getTotalFoodSaved() : BigDecimal.ZERO;
+
+        userProfile.setCarbonPoints(curPoints.subtract(carbonPoints).max(BigDecimal.ZERO));
+        userProfile.setTotalCarbonSaved(curCarbon.subtract(orderCarbon).max(BigDecimal.ZERO));
+        userProfile.setTotalFoodSaved(curFood.subtract(new BigDecimal(order.getQuantity())).max(BigDecimal.ZERO));
+        userProfile.setUpdateTime(LocalDateTime.now());
+        userProfileMapper.updateById(userProfile);
+
+        carbonLogMapper.delete(new LambdaQueryWrapper<CarbonLog>()
+                .eq(CarbonLog::getOrderId, order.getOrderId())
+                .eq(CarbonLog::getLogType, 1));
+
+        CarbonLog log = new CarbonLog();
+        log.setUserId(userId);
+        log.setOrderId(order.getOrderId());
+        log.setCarbonPoints(carbonPoints.negate());
+        log.setCarbonSaved(orderCarbon.negate());
+        log.setLogType(2);
+        log.setDescription("订单退款扣回碳积分与减排统计");
+        log.setCreateTime(LocalDateTime.now());
+        carbonLogMapper.insert(log);
     }
 
     /**

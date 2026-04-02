@@ -229,6 +229,16 @@ public class ConsumerController {
     }
 
     /**
+     * 申请退款（支付后 10 分钟内、待核销；商家拒绝后不可再申请）
+     */
+    @PostMapping("/order/{id}/refund-apply")
+    public Result<Void> applyRefund(Authentication authentication, @PathVariable("id") Long orderId) {
+        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
+        orderService.applyRefund(orderId, loginUser.getUserId());
+        return Result.success();
+    }
+
+    /**
      * 获取低碳中心信息
      */
     @GetMapping("/carbon")

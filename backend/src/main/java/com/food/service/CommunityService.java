@@ -3,6 +3,7 @@ package com.food.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.food.entity.Community;
 import com.food.mapper.CommunityMapper;
+import com.food.mapper.MerchantMapper;
 import com.food.util.DemoTextNormalizeUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import java.util.stream.Collectors;
 public class CommunityService {
 
     private final CommunityMapper communityMapper;
+    private final MerchantMapper merchantMapper;
     private final JdbcTemplate jdbcTemplate;
 
     private static final long GREEN_COMMUNITY_ID = 3L;
@@ -99,9 +101,19 @@ public class CommunityService {
     public List<Community> getAllCommunities() {
         LambdaQueryWrapper<Community> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Community::getStatus, 1).orderByAsc(Community::getCommunityName);
-        return communityMapper.selectList(wrapper).stream()
+        List<Community> list = communityMapper.selectList(wrapper).stream()
                 .map(DemoTextNormalizeUtil::normalizeCommunity)
                 .collect(Collectors.toList());
+        for (Community c : list) {
+            if (c.getCommunityId() == null) {
+                continue;
+            }
+            Long mc = merchantMapper.countMerchantsByCommunity(c.getCommunityId());
+            Long pc = merchantMapper.countOnSaleProductsByCommunity(c.getCommunityId());
+            c.setMerchantCount(mc != null ? mc : 0L);
+            c.setOnSaleProductCount(pc != null ? pc : 0L);
+        }
+        return list;
     }
 
     /**

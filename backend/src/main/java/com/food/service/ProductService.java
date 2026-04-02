@@ -208,6 +208,9 @@ public class ProductService {
             product.setStatus(status);
             product.setUpdateTime(LocalDateTime.now());
             productMapper.updateById(product);
+            // 与数据库一致，避免售罄后 Redis 残留导致上下架/再售行为异常
+            int stock = product.getStock() != null ? product.getStock() : 0;
+            redisTemplate.opsForValue().set(STOCK_KEY_PREFIX + productId, stock, 7, TimeUnit.DAYS);
             count++;
         }
         return count;
