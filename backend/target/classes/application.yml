@@ -13,6 +13,12 @@ spring:
     url: ${DB_URL:jdbc:mysql://localhost:3306/food_saving?useUnicode=true&characterEncoding=utf8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:EA7music666}
+    hikari:
+      maximum-pool-size: 200      # 最大连接数调到 200
+      minimum-idle: 50            # 最小空闲连接数
+      connection-timeout: 30000   # 等待连接超时的最大时长（30秒）
+      idle-timeout: 600000        # 连接空闲存活时长
+      max-lifetime: 1800000       # 连接最大生命周期
 
   # Redis Configuration
   data:

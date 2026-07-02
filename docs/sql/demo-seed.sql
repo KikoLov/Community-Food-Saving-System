@@ -81,13 +81,14 @@ SET @bakery_id = (SELECT category_id FROM biz_category WHERE category_code = 'DE
 SET @drink_id = (SELECT category_id FROM biz_category WHERE category_code = 'DEMO_DRINK' LIMIT 1);
 
 -- 4) User profile
-INSERT INTO biz_user_profile (user_id, community_id, carbon_points, total_carbon_saved, total_food_saved, deleted, create_time, update_time)
-VALUES (@consumer_user_id, @community_id, 0, 0, 0, 0, NOW(), NOW())
+INSERT INTO biz_user_profile (user_id, community_id, carbon_points, total_carbon_saved, total_food_saved, wallet_balance, deleted, create_time, update_time)
+VALUES (@consumer_user_id, @community_id, 0, 0, 0, 200.00, 0, NOW(), NOW())
 ON DUPLICATE KEY UPDATE
   community_id = VALUES(community_id),
   carbon_points = VALUES(carbon_points),
   total_carbon_saved = VALUES(total_carbon_saved),
   total_food_saved = VALUES(total_food_saved),
+  wallet_balance = 200.00,
   deleted = 0,
   update_time = NOW();
 

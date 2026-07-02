@@ -163,6 +163,7 @@ CREATE TABLE IF NOT EXISTS biz_user_profile (
     carbon_points DECIMAL(10,2) DEFAULT 0 COMMENT '低碳积分',
     total_carbon_saved DECIMAL(10,4) DEFAULT 0 COMMENT '累计碳减排量(kg CO2)',
     total_food_saved DECIMAL(10,2) DEFAULT 0 COMMENT '累计挽救食品重量(kg)',
+    wallet_balance DECIMAL(10,2) NOT NULL DEFAULT 200.00 COMMENT '钱包余额',
     create_by VARCHAR(64) DEFAULT '' COMMENT '创建者',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     update_by VARCHAR(64) DEFAULT '' COMMENT '更新者',
@@ -286,9 +287,9 @@ INSERT INTO biz_merchant (user_id, merchant_name, contact_phone, address, licens
 (3, '阳光便利店', '13900139001', '朝阳区阳光路1号底商', 1, 1, NOW());
 
 -- 为居民创建用户资料
-INSERT INTO biz_user_profile (user_id, community_id, carbon_points, total_carbon_saved, total_food_saved, create_time) VALUES
-(1, 1, 0, 0, 0, NOW()),
-(2, 2, 0, 0, 0, NOW());
+INSERT INTO biz_user_profile (user_id, community_id, carbon_points, total_carbon_saved, total_food_saved, wallet_balance, create_time) VALUES
+(1, 1, 0, 0, 0, 0.00, NOW()),
+(2, 2, 0, 0, 0, 200.00, NOW());
 
 -- 插入测试商品数据
 INSERT INTO biz_product (merchant_id, category_id, product_name, product_image, original_price, discount_price, stock, unit, expire_date, expire_datetime, description, warning_hours, status, create_time) VALUES

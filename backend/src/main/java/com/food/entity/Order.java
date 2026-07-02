@@ -90,19 +90,28 @@ public class Order extends BaseEntity {
     private String verifyCode;
 
     /**
-     * 订单状态: 0-待核销 1-已核销 2-已取消 3-已过期 4-已退款（商家同意退款）
+     * 订单状态: 0-待核销 1-已核销 2-已取消 3-已过期 4-已退款
      */
     private Integer orderStatus;
 
     /**
-     * 退款申请: 0-无 1-待商家审核 2-商家已拒绝（不可再申请） 3-退款已完成
+     * 退款申请: 0-无 1-待审 2-已拒 3-已完成
      */
     private Integer refundApplyStatus;
 
+    /**
+     * 顾客申请退款时间
+     */
     private LocalDateTime refundApplyTime;
 
+    /**
+     * 商家拒绝退款理由
+     */
     private String refundRejectReason;
 
+    /**
+     * 商家处理退款时间
+     */
     private LocalDateTime refundAuditTime;
 
     /**

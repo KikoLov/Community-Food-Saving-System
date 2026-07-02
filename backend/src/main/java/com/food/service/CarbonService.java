@@ -56,7 +56,7 @@ public class CarbonService {
      * 获取用户低碳信息（并写回资料表，保证与订单/流水一致）
      * <ul>
      *   <li>累计碳减排、累计挽救食品：已核销订单汇总</li>
-     *   <li>碳积分：Σ(逐单 ROUND(实付×5,2)) − Σ(兑换流水 log_type=2 的扣减分值)，与核销规则及商城兑换一致</li>
+     *   <li>碳积分：Σ(逐单 ROUND(实付×0.5,2)) − Σ(兑换流水 log_type=2 的扣减分值)，与核销规则及商城兑换一致</li>
      * </ul>
      */
     public UserProfile getUserCarbonInfo(Long userId) {

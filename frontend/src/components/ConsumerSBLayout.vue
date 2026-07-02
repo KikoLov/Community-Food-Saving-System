@@ -1,5 +1,5 @@
 <template>
-  <SBAdminLayout brandName="食品临期平台">
+  <SBAdminLayout brandName="社区内临期食品流转及减损系统">
     <template #menu>
       <div class="sb-sidenav-menu-heading">购物</div>
       <a class="nav-link" :class="{ active: isActive('/consumer/products') }" href="#" @click.prevent="navigateTo('/consumer/products')">

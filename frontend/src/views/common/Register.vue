@@ -15,7 +15,7 @@
           <span class="logo-leaf">🍃</span>
         </div>
         <p class="welcome-en">CREATE ACCOUNT</p>
-        <h1 class="title">社区临期食品低碳减损系统</h1>
+        <h1 class="title">社区内临期食品流转及减损系统</h1>
         <p class="subtitle">创建账号，立即开始低碳生活</p>
       </div>
 
@@ -246,7 +246,7 @@ onMounted(() => {
   place-items: center;
   position: relative;
   overflow: hidden;
-  padding: 20px;
+  padding: 24px;
 }
 
 .bg-decoration {
@@ -280,11 +280,11 @@ onMounted(() => {
 }
 
 .register-card {
-  width: min(760px, 95vw);
-  background: rgba(255, 255, 255, 0.72);
+  width: min(700px, 95vw);
+  background: rgba(255, 255, 255, 0.68);
   border: 1px solid rgba(214, 229, 216, 0.9);
   border-radius: 22px;
-  padding: 30px 28px 26px;
+  padding: 50px 40px;
   backdrop-filter: blur(14px);
   box-shadow:
     0 22px 60px rgba(18, 58, 37, 0.14),
@@ -298,19 +298,19 @@ onMounted(() => {
   justify-items: center;
   text-align: center;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .brand-logo {
-  width: 58px;
-  height: 58px;
+  width: 56px;
+  height: 56px;
   border-radius: 18px;
   background: linear-gradient(145deg, rgba(26, 109, 69, 0.18), rgba(15, 79, 49, 0.08));
   display: grid;
   place-items: center;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.62),
-    0 10px 22px rgba(15, 73, 41, 0.1);
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 10px 22px rgba(15, 73, 41, 0.12);
 }
 
 .logo-leaf { font-size: 1.25rem; }
@@ -319,45 +319,45 @@ onMounted(() => {
   margin: 0;
   font-size: 0.78rem;
   font-weight: 900;
-  letter-spacing: 0.42em;
-  color: #69bf72;
+  letter-spacing: 0.34em;
+  color: #66bb6a;
+  text-indent: 0.34em;
 }
 
 .title {
   margin: 0;
-  font-size: 1.62rem;
+  font-size: 1.6rem;
   font-weight: 900;
-  color: #1d7a3f;
-  line-height: 1.2;
+  color: #2e7d32;
+  line-height: 1.25;
 }
 
 .subtitle {
   margin: 0;
   font-size: 0.95rem;
   color: #4b6a58;
-  font-weight: 700;
 }
 
 .form {
   display: grid;
-  gap: 10px;
+  gap: 14px;
+  margin-top: 18px;
 }
 
 .grid-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 14px;
 }
 
 .field {
-  height: 52px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 14px;
+  gap: 10px;
+  padding: 14px 16px;
   border-radius: 14px;
-  border: 1px solid rgba(216, 232, 220, 1);
-  background: rgba(252, 254, 252, 0.9);
+  border: 1px solid rgba(220, 231, 223, 1);
+  background: rgba(250, 252, 250, 0.75);
   transition: all 0.22s ease;
 }
 
@@ -372,76 +372,68 @@ onMounted(() => {
   border: none;
   outline: none;
   background: transparent;
-  font-size: 1.05rem;
-  color: #2f4738;
-  font-weight: 700;
+  font-size: 1.1rem;
+  color: #27392e;
 }
 
-.input::placeholder {
-  color: #a7b9ac;
-  font-weight: 700;
-}
+.input::placeholder { color: #9db0a2; }
 
 .eye-btn {
   border: none;
   background: transparent;
-  color: #6d8476;
+  color: #5f7768;
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 1.2rem;
+  padding: 0 6px;
+  transition: transform 120ms ease;
 }
+.eye-btn:hover { transform: translateY(-1px); }
 
 .inline-error {
   margin: -2px 4px 2px;
   color: #c62828;
   font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .type-selector {
-  height: 52px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 14px;
 }
 
 .type-btn {
-  border: 1px solid rgba(216, 232, 220, 1);
+  border: 1px solid rgba(220, 231, 223, 1);
   border-radius: 14px;
-  background: rgba(252, 254, 252, 0.9);
-  color: #2e4a3a;
+  background: rgba(250, 252, 250, 0.75);
+  color: #4b6a58;
   font-size: 1rem;
-  font-weight: 900;
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
 .type-btn.active {
-  background: linear-gradient(135deg, #53af68, #2f7d41);
+  background: linear-gradient(135deg, #56b36c, #2f7d41);
   color: #fff;
   border-color: transparent;
 }
 
 .community-row {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .community-label {
-  color: #4f6658;
+  color: #4b6a58;
   font-size: 0.9rem;
-  font-weight: 700;
 }
 
 .community-select {
-  height: 44px;
-  border: 1px solid rgba(216, 232, 220, 1);
+  height: 48px;
+  border: 1px solid rgba(220, 231, 223, 1);
   border-radius: 14px;
-  background: rgba(252, 254, 252, 0.9);
-  color: #2e4a3a;
-  font-size: 0.95rem;
-  font-weight: 700;
-  padding: 0 12px;
+  background: rgba(250, 252, 250, 0.75);
+  color: #27392e;
+  font-size: 1rem;
+  padding: 0 14px;
   outline: none;
 }
 
@@ -451,12 +443,12 @@ onMounted(() => {
 }
 
 .register-btn {
-  margin-top: 6px;
+  margin-top: 14px;
   width: 100%;
-  height: 54px;
+  height: 52px;
   border: none;
   border-radius: 14px;
-  font-size: 1.08rem;
+  font-size: 1.1rem;
   font-weight: 900;
   cursor: pointer;
   background: linear-gradient(135deg, #56b36c, #2f7d41);
@@ -471,18 +463,29 @@ onMounted(() => {
   cursor: not-allowed;
 }
 
-.login-row {
-  margin-top: 18px;
-  text-align: center;
-  font-size: 0.95rem;
-  color: #4f6658;
-  font-weight: 700;
+.register-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow:
+    0 18px 34px rgba(45, 122, 65, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.48);
 }
 
-.muted { margin-right: 8px; }
+.register-btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: inset 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.login-row {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 0.95rem;
+  color: #4b6a58;
+}
+
+.muted { margin-right: 6px; }
 
 .login-link {
-  color: #2f7d41;
+  color: #2e7d32;
   font-weight: 900;
   text-decoration: none;
 }
@@ -512,17 +515,9 @@ onMounted(() => {
 .fade-enter-from,
 .fade-leave-to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
 
-@media (max-width: 760px) {
+@media (max-width: 540px) {
+  .register-card { padding: 32px 20px; }
+  .title { font-size: 1.2rem; }
   .grid-row { grid-template-columns: 1fr; }
-  .register-card {
-    width: min(700px, 96vw);
-    border-radius: 20px;
-    padding: 26px 18px 22px;
-  }
-  .title { font-size: 1.3rem; }
-  .subtitle { font-size: 0.9rem; }
-  .field, .type-selector, .register-btn { height: 50px; border-radius: 13px; }
-  .community-select { height: 42px; border-radius: 13px; }
-  .login-row { font-size: 0.95rem; }
 }
 </style>

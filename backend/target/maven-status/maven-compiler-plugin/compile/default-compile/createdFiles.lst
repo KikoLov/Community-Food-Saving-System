@@ -77,6 +77,7 @@ com\food\dto\VerifyCodeDTO.class
 com\food\mapper\OperationLogMapper.class
 com\food\controller\ConsumerGamificationController.class
 com\food\controller\TestController.class
+com\food\dto\RefundRejectDTO.class
 com\food\dto\MerchantRatingSummaryDTO.class
 com\food\dto\ReviewCreateDTO.class
 com\food\config\MyBatisPlusConfig.class

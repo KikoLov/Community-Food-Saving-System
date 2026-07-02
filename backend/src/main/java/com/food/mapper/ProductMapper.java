@@ -5,6 +5,7 @@ import com.food.entity.Product;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -17,6 +18,10 @@ public interface ProductMapper extends BaseMapper<Product> {
     /**
      * 查询商品列表(居民端) - 按社区
      */
+    // 添加这个方法
+    @Update("update biz_product set stock = stock - #{quantity} " +
+            "where product_id = #{productId} and stock >= #{quantity}")
+    int decreaseStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
     @Select("""
         SELECT p.*, m.merchant_name, c.category_name
         FROM biz_product p

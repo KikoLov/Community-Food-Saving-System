@@ -26,6 +26,11 @@ import java.util.Random;
 @RequiredArgsConstructor
 public class OrderService {
 
+    /** 演示口径：每件食品默认按 1kg 计 */
+    private static final BigDecimal DEFAULT_FOOD_WEIGHT_KG = BigDecimal.ONE;
+    /** 演示口径：每件食品核销后固定减少 3kg CO₂ */
+    private static final BigDecimal CARBON_SAVED_KG_PER_UNIT = new BigDecimal("3");
+
     private final OrderMapper orderMapper;
     private final ProductMapper productMapper;
     private final MerchantMapper merchantMapper;
@@ -39,6 +44,9 @@ public class OrderService {
      */
     @Transactional
     public Order createOrder(Long userId, OrderCreateDTO orderDTO) {
+        System.out.println("！！！JMeter 大军已到达现场！！！");
+        System.err.println("！！！JMeter 发来的商品ID是：" + orderDTO.getProductId());
+        System.err.println("！！！JMeter 发来的数量是：" + orderDTO.getQuantity());
         // 查询商品
         Product product = productMapper.selectById(orderDTO.getProductId());
         if (product == null) {
@@ -49,6 +57,14 @@ public class OrderService {
         }
         if (product.getExpireDatetime().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("商品已过期");
+        }
+        // 2. 【核心修改】调用在 Mapper 里写的原子扣减方法
+// 这一步会直接在数据库里减库存，利用数据库行锁，1000人同时抢也会排队，不会报“版本冲突”
+        int rows = productMapper.decreaseStock(orderDTO.getProductId(), orderDTO.getQuantity());
+
+        if (rows == 0) {
+            // 如果返回0，说明在这一秒内，库存被别人抢光了
+            throw new RuntimeException("商品库存不足");
         }
 
         BigDecimal subtotal = product.getDiscountPrice().multiply(new BigDecimal(orderDTO.getQuantity()));
@@ -115,10 +131,8 @@ public class OrderService {
             order.setBagValue(product.getBagValue());
             order.setCreateTime(LocalDateTime.now());
 
-            // 计算碳减排量 (使用默认碳因子 1.5)
-            BigDecimal carbonSaved = new BigDecimal(orderDTO.getQuantity()).multiply(new BigDecimal("1.5"))
-                    .divide(new BigDecimal("1000"), 4, RoundingMode.HALF_UP); // 假设每件商品1kg
-            order.setCarbonSaved(carbonSaved);
+            // 碳减排：每件默认 1kg 食品，每件固定减少 3kg CO₂
+            order.setCarbonSaved(calculateCarbonSaved(orderDTO.getQuantity()));
 
             orderMapper.insert(order);
 
@@ -152,6 +166,12 @@ public class OrderService {
         Order order = orderMapper.selectOrderByVerifyCodeAnyStatus(verifyCode);
         validateVerifyOrder(order, merchantId);
 
+        BigDecimal orderCarbon = order.getCarbonSaved();
+        if (orderCarbon == null || orderCarbon.compareTo(BigDecimal.ZERO) <= 0) {
+            orderCarbon = calculateCarbonSaved(order.getQuantity());
+            order.setCarbonSaved(orderCarbon);
+        }
+
         // 更新订单状态
         order.setOrderStatus(1); // 已核销
         order.setVerifyTime(LocalDateTime.now());
@@ -163,20 +183,18 @@ public class OrderService {
                 new LambdaQueryWrapper<UserProfile>().eq(UserProfile::getUserId, order.getUserId())
         );
         if (userProfile != null) {
-            // 提高兑换速度：碳积分按实付金额计算，约消费 20 元可兑换 100 分档位券
-            // 规则：碳积分 = 实付金额 * 5
+            // 规则：碳积分 = 实付金额 × 0.5（如消费 10 元得 5 积分）
             BigDecimal carbonPoints = (order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount())
-                    .multiply(new BigDecimal("5"))
+                    .multiply(new BigDecimal("0.5"))
                     .setScale(2, RoundingMode.HALF_UP);
 
             BigDecimal curPoints = userProfile.getCarbonPoints() != null ? userProfile.getCarbonPoints() : BigDecimal.ZERO;
             BigDecimal curCarbon = userProfile.getTotalCarbonSaved() != null ? userProfile.getTotalCarbonSaved() : BigDecimal.ZERO;
             BigDecimal curFood = userProfile.getTotalFoodSaved() != null ? userProfile.getTotalFoodSaved() : BigDecimal.ZERO;
-            BigDecimal orderCarbon = order.getCarbonSaved() != null ? order.getCarbonSaved() : BigDecimal.ZERO;
 
             userProfile.setCarbonPoints(curPoints.add(carbonPoints));
             userProfile.setTotalCarbonSaved(curCarbon.add(orderCarbon));
-            userProfile.setTotalFoodSaved(curFood.add(new BigDecimal(order.getQuantity())));
+            userProfile.setTotalFoodSaved(curFood.add(calculateFoodSavedKg(order.getQuantity())));
             userProfile.setUpdateTime(LocalDateTime.now());
             userProfileMapper.updateById(userProfile);
 
@@ -185,9 +203,9 @@ public class OrderService {
             carbonLog.setUserId(order.getUserId());
             carbonLog.setOrderId(order.getOrderId());
             carbonLog.setCarbonPoints(carbonPoints);
-            carbonLog.setCarbonSaved(order.getCarbonSaved());
+            carbonLog.setCarbonSaved(orderCarbon);
             carbonLog.setLogType(1); // 订单获得
-            carbonLog.setDescription("订单核销获得碳积分（按实付金额计算）");
+            carbonLog.setDescription("订单核销获得碳积分与碳减排（每件1kg食品，每件减3kg CO₂）");
             carbonLog.setCreateTime(LocalDateTime.now());
             carbonLogMapper.insert(carbonLog);
         }
@@ -410,7 +428,7 @@ public class OrderService {
             return;
         }
         BigDecimal carbonPoints = (order.getTotalAmount() == null ? BigDecimal.ZERO : order.getTotalAmount())
-                .multiply(new BigDecimal("5"))
+                .multiply(new BigDecimal("0.5"))
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal orderCarbon = order.getCarbonSaved() != null ? order.getCarbonSaved() : BigDecimal.ZERO;
         BigDecimal curPoints = userProfile.getCarbonPoints() != null ? userProfile.getCarbonPoints() : BigDecimal.ZERO;
@@ -419,7 +437,7 @@ public class OrderService {
 
         userProfile.setCarbonPoints(curPoints.subtract(carbonPoints).max(BigDecimal.ZERO));
         userProfile.setTotalCarbonSaved(curCarbon.subtract(orderCarbon).max(BigDecimal.ZERO));
-        userProfile.setTotalFoodSaved(curFood.subtract(new BigDecimal(order.getQuantity())).max(BigDecimal.ZERO));
+        userProfile.setTotalFoodSaved(curFood.subtract(calculateFoodSavedKg(order.getQuantity())).max(BigDecimal.ZERO));
         userProfile.setUpdateTime(LocalDateTime.now());
         userProfileMapper.updateById(userProfile);
 
@@ -583,5 +601,20 @@ public class OrderService {
                 + "<text x='28' y='166' font-size='14' font-family='Arial' fill='#4b5563'>" + tag + " AI Style</text>"
                 + "</svg>";
         return "data:image/svg+xml;utf8," + URLEncoder.encode(svg, StandardCharsets.UTF_8).replace("+", "%20");
+    }
+
+    /** 每件 1kg 食品 × 每件 3kg CO₂ 减排 */
+    private BigDecimal calculateCarbonSaved(Integer quantity) {
+        int qty = quantity == null || quantity <= 0 ? 1 : quantity;
+        return DEFAULT_FOOD_WEIGHT_KG
+                .multiply(CARBON_SAVED_KG_PER_UNIT)
+                .multiply(new BigDecimal(qty))
+                .setScale(2, RoundingMode.HALF_UP);
+    }
+
+    /** 每件食品按 1kg 计 */
+    private BigDecimal calculateFoodSavedKg(Integer quantity) {
+        int qty = quantity == null || quantity <= 0 ? 1 : quantity;
+        return DEFAULT_FOOD_WEIGHT_KG.multiply(new BigDecimal(qty)).setScale(2, RoundingMode.HALF_UP);
     }
 }

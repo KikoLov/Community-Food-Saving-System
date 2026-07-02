@@ -23,6 +23,12 @@
         <p class="text-muted">店铺简介：{{ merchant.description || '暂无简介' }}</p>
       </div>
 
+      <MerchantReviewsPanel
+        v-if="merchant"
+        :merchant-id="merchant.merchantId"
+        :merchant-name="merchant.merchantName"
+      />
+
       <div class="card mb-3">
         <h3>商品总览</h3>
         <div class="d-flex align-center" style="gap: 10px; flex-wrap: wrap;">
@@ -154,6 +160,7 @@ import { getConsumerMerchantDetail, addToCart } from '@/api/consumer'
 import { Message } from '@/utils/message'
 import { resolveProductImageSrc, buildNameBasedProductImage } from '@/utils/productImage'
 import { normalizeProductRecord } from '@/utils/demoTextNormalizer'
+import MerchantReviewsPanel from '@/components/MerchantReviewsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()

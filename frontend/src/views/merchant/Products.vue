@@ -48,7 +48,7 @@
                 <th>库存</th>
                 <th>过期时间</th>
                 <th>状态</th>
-                <th class="col-actions">操作</th>
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -81,37 +81,29 @@
                     {{ getStatusText(row.status) }}
                   </span>
                 </td>
-                <td class="merchant-product-actions">
-                  <div class="action-btn-group">
-                    <button
-                      v-if="row.status !== 1"
-                      type="button"
-                      class="btn btn-outline-success action-btn"
-                      title="上架"
-                      @click="handleSingleStatus(row.productId, 1)"
-                    >
-                      <i class="fas fa-arrow-up" aria-hidden="true"></i>
-                      <span class="action-label">上架</span>
-                    </button>
-                    <button
-                      v-else
-                      type="button"
-                      class="btn btn-outline-warning action-btn"
-                      title="下架"
-                      @click="handleSingleStatus(row.productId, 0)"
-                    >
-                      <i class="fas fa-arrow-down" aria-hidden="true"></i>
-                      <span class="action-label">下架</span>
-                    </button>
-                    <button type="button" class="btn btn-outline-primary action-btn" title="编辑" @click="handleEdit(row)">
-                      <i class="fas fa-edit" aria-hidden="true"></i>
-                      <span class="action-label">编辑</span>
-                    </button>
-                    <button type="button" class="btn btn-outline-danger action-btn" title="删除" @click="handleDelete(row.productId)">
-                      <i class="fas fa-trash" aria-hidden="true"></i>
-                      <span class="action-label">删除</span>
-                    </button>
-                  </div>
+                <td>
+                  <button
+                    v-if="row.status !== 1"
+                    class="btn btn-outline-success btn-sm me-1"
+                    title="上架"
+                    @click="handleSingleStatus(row.productId, 1)"
+                  >
+                    <i class="fas fa-arrow-up"></i>
+                  </button>
+                  <button
+                    v-else
+                    class="btn btn-outline-warning btn-sm me-1"
+                    title="下架"
+                    @click="handleSingleStatus(row.productId, 0)"
+                  >
+                    <i class="fas fa-arrow-down"></i>
+                  </button>
+                  <button class="btn btn-outline-primary btn-sm me-1" @click="handleEdit(row)">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-outline-danger btn-sm" @click="handleDelete(row.productId)">
+                    <i class="fas fa-trash"></i>
+                  </button>
                 </td>
               </tr>
               <tr v-if="filteredProducts.length === 0">
@@ -126,14 +118,18 @@
       </div>
     </div>
 
-    <!-- 挂到 body，避免商户布局 main-content 的 z-index 堆叠上下文导致遮罩盖住弹窗、无法点击 -->
-    <Teleport to="body">
-    <div class="modal fade merchant-product-modal" id="productModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <!-- Product Modal -->
+    <div
+      v-if="isProductModalOpen"
+      class="modal show product-modal-backdrop"
+      tabindex="-1"
+      @click.self="closeModal"
+    >
+      <div class="modal-dialog modal-lg">
         <div class="modal-content">
           <div class="modal-header">
             <h5 class="modal-title">{{ dialogTitle }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <button type="button" class="btn-close" @click="closeModal"></button>
           </div>
           <div class="modal-body">
             <form @submit.prevent="handleSubmit">
@@ -185,8 +181,7 @@
                 </div>
                 <div class="col-md-3 mb-3">
                   <label class="form-label">库存 *</label>
-                  <input type="number" class="form-control" v-model.number="productForm.stock" min="1" step="1">
-                  <div class="form-text">须 ≥ 1（后端要求为正整数）</div>
+                  <input type="number" class="form-control" v-model="productForm.stock" min="0">
                 </div>
               </div>
               <div class="row">
@@ -219,20 +214,18 @@
             </form>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+            <button type="button" class="btn btn-secondary" @click="closeModal">取消</button>
             <button type="button" class="btn btn-outline-secondary" @click="handleSubmit(0)">保存草稿</button>
             <button type="button" class="btn btn-primary" @click="handleSubmit(1)">立即发布</button>
           </div>
         </div>
       </div>
     </div>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, computed } from 'vue'
-import { Modal } from 'bootstrap'
+import { ref, reactive, onMounted, computed } from 'vue'
 import {
   getMerchantProducts,
   addProduct,
@@ -255,7 +248,7 @@ const products = ref([])
 const selectedIds = ref([])
 const categories = ref([])
 const surpriseBagFilter = ref(false)
-let productModal = null
+const isProductModalOpen = ref(false)
 const dialogTitle = ref('添加商品')
 const isEdit = ref(false)
 const productImagePreview = ref(buildNameBasedProductImage({}, 120))
@@ -269,7 +262,7 @@ const productForm = reactive({
   minPrice: 0,
   bagValue: 0,
   surpriseBag: false,
-  stock: 1,
+  stock: 0,
   expireDate: '',
   expireDatetime: '',
   warningHours: 24,
@@ -281,22 +274,6 @@ const productForm = reactive({
 onMounted(async () => {
   await loadProducts()
   await loadCategories()
-})
-
-onUnmounted(() => {
-  if (productModal) {
-    try {
-      productModal.hide()
-    } catch (e) {
-      /* ignore */
-    }
-    productModal.dispose?.()
-    productModal = null
-  }
-  document.querySelectorAll('.modal-backdrop').forEach((el) => el.remove())
-  document.body.classList.remove('modal-open')
-  document.body.style.removeProperty('overflow')
-  document.body.style.removeProperty('padding-right')
 })
 
 const loadProducts = async () => {
@@ -382,7 +359,7 @@ const handleAdd = () => {
     minPrice: 0,
     bagValue: 0,
     surpriseBag: false,
-    stock: 1,
+    stock: 0,
     expireDate: '',
     expireDatetime: '',
     warningHours: 24,
@@ -391,7 +368,7 @@ const handleAdd = () => {
     productImage: ''
   })
   productImagePreview.value = buildNameBasedProductImage({}, 120)
-  openModal()
+  isProductModalOpen.value = true
 }
 
 const handleEdit = (row) => {
@@ -405,7 +382,11 @@ const handleEdit = (row) => {
     expireDatetime: row.expireDatetime ? row.expireDatetime.substring(11, 19) : ''
   })
   productImagePreview.value = getProductImage(row)
-  openModal()
+  isProductModalOpen.value = true
+}
+
+const closeModal = () => {
+  isProductModalOpen.value = false
 }
 
 const compressImageToWebp = (file) => new Promise((resolve, reject) => {
@@ -486,18 +467,6 @@ const handleRemoveImage = async () => {
   }
 }
 
-const openModal = () => {
-  const el = document.getElementById('productModal')
-  if (!el) {
-    Message.error('无法打开弹窗，请刷新页面重试')
-    return
-  }
-  if (!productModal) {
-    productModal = new Modal(el, { backdrop: true, keyboard: true, focus: true })
-  }
-  productModal.show()
-}
-
 const handleDelete = async (productId) => {
   if (confirm('确定要删除该商品吗?')) {
     try {
@@ -576,30 +545,15 @@ const handleSubmit = async (targetStatus = 1) => {
       Message.warning('最低底价不能高于原价')
       return
     }
-    const stockNum = Number(productForm.stock)
-    if (!Number.isFinite(stockNum) || stockNum < 1) {
-      Message.warning('库存须为大于等于 1 的整数')
-      return
-    }
     if (productForm.surpriseBag && (!productForm.bagValue || Number(productForm.bagValue) <= 0)) {
       Message.warning('盲盒名义价值必须大于0')
       return
     }
-    const timePart = String(productForm.expireDatetime || '').trim().slice(0, 5)
-    if (!timePart || timePart.length < 4) {
-      Message.warning('请填写有效的过期时间（时:分）')
-      return
-    }
     const payload = {
       ...productForm,
-      stock: Math.floor(stockNum),
-      originalPrice: original,
-      minPrice: min,
       status: targetStatus,
-      surpriseBag: Boolean(productForm.surpriseBag),
-      bagValue: productForm.surpriseBag ? Number(productForm.bagValue) : null,
       // 后端要求 LocalDateTime；将 date + time 组装为 ISO 本地时间字符串
-      expireDatetime: `${productForm.expireDate}T${timePart}:00`
+      expireDatetime: `${productForm.expireDate}T${String(productForm.expireDatetime).slice(0, 5)}:00`
     }
     if (isEdit.value) {
       await updateProduct(productForm.productId, payload)
@@ -608,9 +562,7 @@ const handleSubmit = async (targetStatus = 1) => {
       await addProduct(payload)
       Message.success(targetStatus === 1 ? '发布成功' : '草稿创建成功')
     }
-    if (productModal) {
-      productModal.hide()
-    }
+    closeModal()
     await loadProducts()
   } catch (error) {
     console.error(error)
@@ -687,40 +639,8 @@ const autoPricingPreview = computed(() => {
   border-color: #3b47b8;
 }
 
-/* 操作列：避免被表格压缩成极小图标按钮 */
-.products-page .col-actions {
-  width: 1%;
-  white-space: nowrap;
-}
-
-.products-page .merchant-product-actions {
-  vertical-align: middle;
-  min-width: 240px;
-}
-
-.products-page .action-btn-group {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.products-page .action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0.5rem 0.85rem;
-  font-size: 0.9375rem;
-  line-height: 1.25;
-  min-height: 40px;
-}
-
-.products-page .action-btn i {
-  font-size: 1rem;
-}
-
-.products-page .action-label {
-  font-weight: 500;
+.product-modal-backdrop {
+  display: block;
+  background: rgba(0, 0, 0, 0.5);
 }
 </style>

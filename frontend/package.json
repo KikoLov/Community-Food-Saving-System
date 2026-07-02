@@ -1,7 +1,7 @@
 {
   "name": "food-saving-frontend",
   "version": "1.0.0",
-  "description": "社区临期食品低碳减损系统 - 前端",
+  "description": "社区内临期食品流转及减损系统 - 前端",
   "type": "module",
   "scripts": {
     "dev": "vite",

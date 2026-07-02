@@ -125,10 +125,8 @@
         <div class="card insight-card">
           <div class="card-body">
             <h6 class="mb-2"><i class="fas fa-bolt me-2"></i>行为洞察</h6>
-            <p class="mb-1 text-muted">已核销订单（推断）</p>
-            <h3 class="mb-2">{{ verifiedCount }}</h3>
-            <p class="mb-1 text-muted">单次平均减碳</p>
-            <h5 class="mb-0 text-success">{{ carbonKgToGramsStr(avgCarbonPerActionKg) }} g</h5>
+            <p class="mb-1 text-muted">已核销订单</p>
+            <h3 class="mb-0">{{ verifiedCount }}</h3>
           </div>
         </div>
       </div>
@@ -211,15 +209,6 @@ const profile = ref(null)
 const logs = ref([])
 
 const verifiedCount = computed(() => logs.value.filter(x => x.logType === 1).length)
-/** 接口 carbonSaved 为 kg，单次平均减碳（kg） */
-const avgCarbonPerActionKg = computed(() => {
-  const c = verifiedCount.value
-  if (!c) return 0
-  const total = logs.value
-    .filter(x => x.logType === 1)
-    .reduce((sum, x) => sum + Number(x.carbonSaved || 0), 0)
-  return total / c
-})
 
 /** 与成就海报一致：kg CO₂ → g 展示 */
 function carbonKgToGramsStr(kg) {

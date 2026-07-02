@@ -82,7 +82,7 @@
                   </span>
                 </td>
                 <td>
-                  <span class="text-success">{{ row.carbonSaved }} kg</span>
+                  <span class="text-success">{{ formatCarbonSaved(row.carbonSaved) }}</span>
                   <div class="small text-muted">≈ {{ carbonCoinsPreview(row) }} 碳积分</div>
                   <div v-if="row.orderStatus === 0" class="small text-warning">核销后到账</div>
                 </td>
@@ -167,7 +167,7 @@
             <span v-if="detailOrder.couponCode" class="v font-monospace small">{{ detailOrder.couponCode }}</span>
           </div>
           <div><span class="k">核销码</span><span class="v">{{ detailOrder.verifyCode }}</span></div>
-          <div><span class="k">碳减排</span><span class="v text-success">{{ detailOrder.carbonSaved }} kg（≈{{ carbonCoinsPreview(detailOrder) }} 碳积分）</span></div>
+          <div><span class="k">碳减排</span><span class="v text-success">{{ formatCarbonSaved(detailOrder.carbonSaved) }}（≈{{ carbonCoinsPreview(detailOrder) }} 碳积分）</span></div>
           <div><span class="k">下单时间</span><span class="v">{{ formatDateTime(detailOrder.createTime) }}</span></div>
           <div><span class="k">核销时间</span><span class="v">{{ formatDateTime(detailOrder.verifyTime) || '-' }}</span></div>
         </div>
@@ -358,10 +358,19 @@ const formatDateTime = (datetime) => {
   return date.toLocaleString('zh-CN')
 }
 
-/** 与后端一致：碳积分 = 碳减排(kg) × 10（核销时入账） */
+/** 与低碳中心一致：kg → g 展示 */
+const formatCarbonSaved = (kg) => {
+  const raw = (Number(kg) || 0) * 1000
+  if (!(raw > 0)) return '0 g'
+  if (raw >= 1000) return `${(raw / 1000).toFixed(raw % 1000 === 0 ? 0 : 2)} kg`
+  if (raw >= 1) return `${(Math.round(raw * 10) / 10).toLocaleString('zh-CN')} g`
+  return `${(Math.round(raw * 1000) / 1000).toLocaleString('zh-CN')} g`
+}
+
+/** 与后端一致：碳积分 = 实付金额 × 0.5（核销后入账） */
 const carbonCoinsPreview = (row) => {
-  const kg = Number(row?.carbonSaved) || 0
-  const coins = kg * 10
+  const paid = Number(row?.totalAmount) || 0
+  const coins = paid * 0.5
   if (Number.isInteger(coins)) return String(coins)
   return coins.toFixed(2)
 }

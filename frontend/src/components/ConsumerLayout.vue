@@ -14,7 +14,7 @@
       <div class="navbar-content">
         <router-link to="/consumer/products" class="navbar-brand">
           <span class="brand-icon">🌿</span>
-          <span class="brand-text">临期食品平台</span>
+          <span class="brand-text">社区内临期食品流转及减损系统</span>
         </router-link>
         <div class="navbar-menu">
           <router-link to="/consumer/products" class="navbar-item">
@@ -66,7 +66,7 @@
     <!-- Footer -->
     <footer class="footer">
       <div class="footer-content">
-        <p>社区临期食品低碳减损系统</p>
+        <p>社区内临期食品流转及减损系统</p>
       </div>
     </footer>
   </div>
@@ -211,7 +211,9 @@ const handleLogout = () => {
 }
 
 .brand-text {
-  font-size: 1.3em;
+  font-size: 1rem;
+  line-height: 1.35;
+  max-width: 14em;
 }
 
 .navbar-menu {

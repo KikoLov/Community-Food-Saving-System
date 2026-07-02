@@ -17,7 +17,7 @@
           <span class="admin-avatar-inner">{{ adminInitial }}</span>
         </div>
         <h2 class="admin-name">{{ userName }}</h2>
-        <p class="admin-subtitle">系统管理平台</p>
+        <p class="admin-subtitle">社区内临期食品流转及减损系统</p>
       </div>
       <ul class="sidebar-menu">
         <li class="sidebar-item" :class="{ active: isActive('/admin/dashboard') }">
@@ -314,11 +314,12 @@ const handleLogout = () => {
 }
 
 .admin-subtitle {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   margin: 0;
   color: var(--admin-text-muted);
   font-weight: 400;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.02em;
+  line-height: 1.45;
 }
 
 .sidebar-menu {

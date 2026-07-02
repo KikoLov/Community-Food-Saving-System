@@ -161,10 +161,10 @@ public interface OrderMapper extends BaseMapper<Order> {
     BigDecimal sumQuantityVerifiedByUser(@Param("userId") Long userId);
 
     /**
-     * 已核销订单产生的碳积分合计：逐单 ROUND(实付*5,2) 再求和，与核销入账规则一致
+     * 已核销订单产生的碳积分合计：逐单 ROUND(实付×0.5,2) 再求和，与核销入账规则一致
      */
     @Select("""
-            SELECT IFNULL(SUM(ROUND(COALESCE(o.total_amount, 0) * 5, 2)), 0)
+            SELECT IFNULL(SUM(ROUND(COALESCE(o.total_amount, 0) * 0.5, 2)), 0)
             FROM biz_order o
             WHERE o.user_id = #{userId}
               AND o.order_status = 1

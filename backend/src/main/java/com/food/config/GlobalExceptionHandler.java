@@ -37,7 +37,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(RuntimeException.class)
     @ResponseStatus(HttpStatus.OK)
     public Result<Void> handleRuntimeException(RuntimeException e) {
-        log.error("业务异常: {}", e.getMessage());
+        log.error("系统异常详情: ", e);
+        e.printStackTrace();// 注意去掉 .getMessage()，直接传 e，这会打印完整的堆栈信息
         return Result.error(500, BizCode.BUSINESS_ERROR, e.getMessage());
     }
 

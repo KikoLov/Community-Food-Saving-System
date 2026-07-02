@@ -67,7 +67,7 @@
           <footer class="py-4 bg-light mt-auto">
             <div class="container-fluid px-4">
               <div class="d-flex align-items-center justify-content-between small">
-                <div class="text-muted">Copyright &copy; 食品临期平台 2024</div>
+                <div class="text-muted">Copyright &copy; 社区内临期食品流转及减损系统 2024</div>
                 <div>
                   <a href="#" class="text-muted me-2">隐私政策</a>
                   &middot;
@@ -95,7 +95,7 @@ const props = defineProps({
   },
   brandName: {
     type: String,
-    default: '食品临期平台'
+    default: '社区内临期食品流转及减损系统'
   }
 })
 

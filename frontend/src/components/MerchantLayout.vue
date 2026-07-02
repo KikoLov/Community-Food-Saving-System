@@ -18,7 +18,7 @@
           <span class="logo-leaf">🍃</span>
         </div>
         <h2>商户中心</h2>
-        <p class="text-muted">店铺管理平台</p>
+        <p class="text-muted system-name">社区内临期食品流转及减损系统</p>
       </div>
       <ul class="sidebar-menu">
         <li class="sidebar-item" :class="{ active: isActive('/merchant/dashboard') }">
@@ -266,9 +266,14 @@ const handleLogout = () => {
 }
 
 .sidebar-header p {
-  font-size: 0.85em;
+  font-size: 0.72em;
   margin: 0;
   color: rgba(232, 245, 236, 0.76);
+  line-height: 1.45;
+}
+
+.sidebar-header .system-name {
+  margin-top: 6px;
 }
 
 .sidebar-menu {

@@ -225,3 +225,11 @@ export function getMerchantLatestReviews(merchantId, limit = 5) {
     params: { merchantId, limit }
   })
 }
+
+// All reviews for a merchant (detail view)
+export function getMerchantReviews(merchantId) {
+  return request({
+    url: `/consumer/reviews/merchant/${merchantId}`,
+    method: 'get'
+  })
+}

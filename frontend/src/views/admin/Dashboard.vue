@@ -8,10 +8,8 @@
         <div class="stat-card" :class="item.tone">
           <div class="stat-top">
             <div class="stat-label">{{ item.label }}</div>
-            <span class="stat-icon">{{ item.icon }}</span>
           </div>
           <div class="stat-value">{{ item.value }}</div>
-          <div class="stat-art">{{ item.art }}</div>
           <div class="shine-layer"></div>
         </div>
       </div>
@@ -110,10 +108,10 @@ const statCards = computed(() => {
   const totalFood = Number(stats.value.totalFoodSaved || 0).toFixed(1)
   const totalOrders = allOrders.value.length
   return [
-    { label: '交易总额', value: `¥${totalAmount}`, icon: '¥', art: '💰', tone: 'tone-money' },
-    { label: '碳减排总量', value: `${totalCarbon} kg`, icon: 'CO2', art: '🌱', tone: 'tone-carbon' },
-    { label: '挽救食品总量', value: `${totalFood} kg`, icon: 'SAVE', art: '🧺', tone: 'tone-food' },
-    { label: '订单总数', value: totalOrders, icon: 'ORD', art: '📦', tone: 'tone-order' }
+    { label: '交易总额', value: `¥${totalAmount}`, tone: 'tone-money' },
+    { label: '碳减排总量', value: `${totalCarbon} kg`, tone: 'tone-carbon' },
+    { label: '挽救食品总量', value: `${totalFood} kg`, tone: 'tone-food' },
+    { label: '订单总数', value: totalOrders, tone: 'tone-order' }
   ]
 })
 
@@ -277,41 +275,13 @@ onUnmounted(() => {
   line-height: 1.1;
   font-weight: 800;
   margin-top: 4px;
-  padding-right: 58px;
   letter-spacing: 0.2px;
   white-space: nowrap;
 }
-.stat-icon {
-  min-width: 40px;
-  height: 24px;
-  border-radius: 999px;
-  padding: 0 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 0.68rem;
-  font-weight: 700;
-  background: rgba(76, 175, 80, 0.14);
-  color: #2f6f3c;
-}
-.stat-art {
-  position: absolute;
-  right: 9px;
-  bottom: 4px;
-  font-size: clamp(1.9rem, 2.2vw, 2.5rem);
-  line-height: 1;
-  opacity: 0.54;
-  filter: saturate(1.08);
-  pointer-events: none;
-}
 .stat-card.tone-money { border-color: #f7d9c6; background: linear-gradient(180deg, #fffdf8, #fff); }
-.stat-card.tone-money .stat-icon { background: rgba(251, 140, 0, 0.18); color: #b45309; }
 .stat-card.tone-carbon { border-color: #d6ead8; background: linear-gradient(180deg, #f8fdf8, #fff); }
-.stat-card.tone-carbon .stat-icon { background: rgba(67, 160, 71, 0.16); color: #2e7d32; }
 .stat-card.tone-food { border-color: #d6e4f6; background: linear-gradient(180deg, #f9fbff, #fff); }
-.stat-card.tone-food .stat-icon { background: rgba(66, 133, 244, 0.16); color: #1d4ed8; }
 .stat-card.tone-order { border-color: #e3d9f3; background: linear-gradient(180deg, #fcf9ff, #fff); }
-.stat-card.tone-order .stat-icon { background: rgba(124, 58, 237, 0.16); color: #6d28d9; }
 .panel-card {
   background: rgba(255, 255, 255, 0.76);
   border: 1px solid rgba(208, 226, 211, 0.8);
@@ -379,9 +349,6 @@ onUnmounted(() => {
 @media (max-width: 1200px) {
   .stat-card {
     min-height: 94px;
-  }
-  .stat-value {
-    padding-right: 54px;
   }
 }
 </style>

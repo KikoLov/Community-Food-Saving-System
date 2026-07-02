@@ -9,13 +9,11 @@ import com.food.entity.OperationLog;
 import com.food.entity.Order;
 import com.food.security.LoginUser;
 import com.food.service.*;
-import com.food.util.DemoTextNormalizeUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +33,6 @@ public class AdminController {
     private final OrderService orderService;
     private final OperationLogService operationLogService;
     private final JdbcTemplate jdbcTemplate;
-    private final ProductService productService;
 
     /**
      * 修复数据库编码问题（临时方法）
@@ -81,34 +78,28 @@ public class AdminController {
     }
 
     /**
-     * 获取全部商户列表（管理端）
+     * 获取所有商户（管理端）
      */
     @GetMapping("/merchants")
-    public Result<List<Merchant>> listMerchants() {
-        List<Merchant> list = merchantService.getAllMerchants();
-        if (list != null) {
-            for (Merchant m : list) {
-                DemoTextNormalizeUtil.normalizeMerchant(m);
-            }
-        }
-        return Result.success(list);
+    public Result<List<Merchant>> getMerchants() {
+        return Result.success(merchantService.getAllMerchants());
     }
 
     /**
      * 商户经营统计（管理端详情）
      */
     @GetMapping("/merchants/{id}/stats")
-    public Result<MerchantAdminStatsDTO> merchantStats(@PathVariable("id") Long merchantId) {
+    public Result<MerchantAdminStatsDTO> getMerchantStats(@PathVariable("id") Long merchantId) {
         return Result.success(merchantService.getMerchantAdminStats(merchantId));
     }
 
     /**
-     * 删除商户（无订单；非 merchant1/merchant2 演示主体）
+     * 删除商户（管理端）
      */
     @DeleteMapping("/merchants/{id}")
-    public Result<Void> deleteMerchantAdmin(Authentication authentication,
-                                           @PathVariable("id") Long merchantId,
-                                           @RequestParam(value = "force", defaultValue = "false") boolean force) {
+    public Result<Void> deleteMerchant(Authentication authentication,
+                                       @PathVariable("id") Long merchantId,
+                                       @RequestParam(required = false, defaultValue = "false") boolean force) {
         LoginUser loginUser = (LoginUser) authentication.getPrincipal();
         merchantService.deleteMerchantForAdmin(merchantId, force);
         operationLogService.logOperation(
@@ -117,30 +108,9 @@ public class AdminController {
                 "MERCHANT",
                 merchantId,
                 null,
-                "管理员删除商户" + (force ? "（含下属订单/商品）" : "")
+                force ? "管理员强制删除商户（含订单/商品）" : "管理员删除商户"
         );
         return Result.success();
-    }
-
-    /**
-     * 一键清理：名称疑似乱码且无任何订单的商户（保留 merchant1/merchant2）
-     */
-    @PostMapping("/merchants/prune-garbled")
-    public Result<Map<String, Object>> pruneGarbledMerchants(Authentication authentication) {
-        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
-        int n = merchantService.pruneGarbledMerchantsWithoutOrders();
-        operationLogService.logOperation(
-                loginUser,
-                "PRUNE_MERCHANT",
-                "SYSTEM",
-                null,
-                null,
-                "清理乱码空商户，删除数量=" + n
-        );
-        return Result.success(Map.of(
-                "removed", n,
-                "message", "已清理 " + n + " 个无订单乱码商户"
-        ));
     }
 
     /**
@@ -295,24 +265,6 @@ public class AdminController {
                 "xAxis", List.of("1月", "2月", "3月", "4月", "5月", "6月"),
                 "carbonData", List.of(120, 200, 150, 280, 210, 320),
                 "foodData", List.of(80, 120, 90, 160, 110, 180)
-        ));
-    }
-
-    /**
-     * 动态定价曲线预览（论文/运营分析辅助）
-     */
-    @GetMapping("/pricing/curve")
-    public Result<Map<String, Object>> pricingCurve(@RequestParam BigDecimal originalPrice,
-                                                    @RequestParam BigDecimal minPrice,
-                                                    @RequestParam(defaultValue = "72") Integer totalHours,
-                                                    @RequestParam(required = false) BigDecimal categoryFactor,
-                                                    @RequestParam(defaultValue = "exponential") String strategy) {
-        return Result.success(Map.of(
-                "strategy", strategy,
-                "originalPrice", originalPrice,
-                "minPrice", minPrice,
-                "totalHours", totalHours,
-                "points", productService.buildPricingCurve(originalPrice, minPrice, totalHours, categoryFactor, strategy)
         ));
     }
 

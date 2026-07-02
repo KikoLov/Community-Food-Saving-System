@@ -156,7 +156,7 @@ public class ConsumerController {
                                      HttpServletRequest request) {
         LoginUser loginUser = (LoginUser) authentication.getPrincipal();
         String key = "consumer:create-order:" + loginUser.getUserId();
-        if (!rateLimitService.allow(key, 5, 10)) {
+        if (!rateLimitService.allow(key, 2000, 60)) {
             throw new RateLimitException("下单操作过于频繁，请稍后重试");
         }
         String idempotencyHeader = request.getHeader("X-Idempotency-Key");
@@ -313,5 +313,13 @@ public class ConsumerController {
     public Result<List<Review>> merchantLatest(@RequestParam Long merchantId,
                                                @RequestParam(defaultValue = "5") Integer limit) {
         return Result.success(reviewService.getLatestMerchantReviews(merchantId, limit));
+    }
+
+    /**
+     * 商家全部评价（居民端查看评价详情）
+     */
+    @GetMapping("/reviews/merchant/{merchantId}")
+    public Result<List<Review>> merchantReviews(@PathVariable Long merchantId) {
+        return Result.success(reviewService.getMerchantReviews(merchantId));
     }
 }

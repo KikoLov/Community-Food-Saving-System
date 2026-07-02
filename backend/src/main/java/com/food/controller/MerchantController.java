@@ -3,7 +3,6 @@ package com.food.controller;
 import com.food.common.Result;
 import com.food.dto.ProductDTO;
 import com.food.dto.ReviewReplyDTO;
-import com.food.dto.RefundRejectDTO;
 import com.food.dto.VerifyCodeDTO;
 import com.food.entity.Merchant;
 import com.food.entity.Order;
@@ -341,52 +340,6 @@ public class MerchantController {
                 "商家核销订单，核销码: " + verifyCodeDTO.getVerifyCode()
         );
         return Result.success(order);
-    }
-
-    /**
-     * 同意退款
-     */
-    @PostMapping("/order/{orderId}/refund/approve")
-    public Result<Void> approveRefund(Authentication authentication, @PathVariable Long orderId) {
-        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
-        Merchant merchant = merchantService.getMerchantByUserId(loginUser.getUserId());
-        if (merchant == null) {
-            return Result.error("请先完善商户信息");
-        }
-        orderService.approveRefund(orderId, merchant.getMerchantId());
-        operationLogService.logOperation(
-                loginUser,
-                "APPROVE_REFUND",
-                "ORDER",
-                orderId,
-                null,
-                "商家同意订单退款"
-        );
-        return Result.success();
-    }
-
-    /**
-     * 拒绝退款（须填写理由）
-     */
-    @PostMapping("/order/{orderId}/refund/reject")
-    public Result<Void> rejectRefund(Authentication authentication,
-                                      @PathVariable Long orderId,
-                                      @Valid @RequestBody RefundRejectDTO dto) {
-        LoginUser loginUser = (LoginUser) authentication.getPrincipal();
-        Merchant merchant = merchantService.getMerchantByUserId(loginUser.getUserId());
-        if (merchant == null) {
-            return Result.error("请先完善商户信息");
-        }
-        orderService.rejectRefund(orderId, merchant.getMerchantId(), dto.getReason());
-        operationLogService.logOperation(
-                loginUser,
-                "REJECT_REFUND",
-                "ORDER",
-                orderId,
-                null,
-                "商家拒绝订单退款"
-        );
-        return Result.success();
     }
 
     /**
